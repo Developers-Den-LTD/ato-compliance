@@ -1,0 +1,624 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { authenticatedFetch } from '@/lib/queryClient';
+import { AtoGuidedWorkflow } from '@/components/ato-guided-workflow';
+import { 
+  FileText, 
+  Download, 
+  Eye, 
+  CheckCircle, 
+  AlertTriangle,
+  Clock,
+  Filter,
+  RefreshCw,
+  Package
+} from 'lucide-react';
+import { format } from 'date-fns';
+
+interface GenerationJob {
+  id: string;
+  systemId: string;
+  documentTypes: string[];
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress: number;
+  currentStep?: string;
+  startTime: string;
+  endTime?: string;
+  error?: string;
+}
+
+interface GenerationResult {
+  jobId: string;
+  documents: Array<{
+    id: string;
+    type: string;
+    title: string;
+    content: string;
+    metadata: any;
+  }>;
+  summary: {
+    totalControls: number;
+    implementedControls: number;
+    findings: number;
+    criticalFindings: number;
+    evidence: number;
+    artifacts: number;
+  };
+}
+
+const documentTypeLabels: Record<string, string> = {
+  'ssp': 'System Security Plan',
+  'sar': 'Security Assessment Report', 
+  'poam': 'Plan of Action & Milestones',
+  'checklist': 'Security Checklist',
+  'ato_package': 'ATO Package',
+  'control_narratives': 'Control Narratives',
+  'poam_report': 'POA&M Report',
+  'sar_package': 'SAR Package',
+  'complete_ato_package': 'Complete ATO Package',
+  'stig_checklist': 'STIG Checklist',
+  'evidence_summary': 'Evidence Summary',
+  'sctm_excel': 'Security Control Traceability Matrix',
+  'rar': 'Risk Assessment Report',
+  'pps_worksheet': 'Privacy Impact Assessment Worksheet'
+};
+
+const statusColors: Record<string, string> = {
+  'pending': 'secondary',
+  'running': 'outline', 
+  'completed': 'default',
+  'failed': 'destructive'
+};
+
+const statusIcons: Record<string, React.ReactNode> = {
+  'pending': <Clock className="w-4 h-4" />,
+  'running': <RefreshCw className="w-4 h-4 animate-spin" />,
+  'completed': <CheckCircle className="w-4 h-4" />,
+  'failed': <AlertTriangle className="w-4 h-4" />
+};
+
+export default function DocumentGeneration() {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Fetch generation jobs
+  const { data: jobs = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['/api/generation/jobs'],
+    queryFn: async () => {
+      const response = await authenticatedFetch('/api/generation/jobs?limit=50');
+      if (!response.ok) {
+        throw new Error('Failed to fetch generation jobs');
+      }
+      const result = await response.json();
+      return Array.isArray(result.jobs) ? result.jobs : [];
+    },
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+  });
+
+  // Fetch systems for display
+  const { data: systems = [] } = useQuery({
+    queryKey: ['/api/systems'],
+  });
+
+  const filteredJobs = jobs.filter((job: GenerationJob) => {
+    if (statusFilter === 'all') return true;
+    return job.status === statusFilter;
+  });
+
+  // Generate a text preview for SCTM documents - UPDATED
+const generateSCTMPreview = (doc: any) => {
+  const content = doc.content || {};
+  const systemName = content.systemName || 'Unknown System';
+  const totalControls = content.totalControls || 0;
+  const templateName = content.templateName || 'SCTM Template';
+  
+  let preview = `# Security Control Traceability Matrix
+## ${systemName}
+
+**Document Type:** Security Control Traceability Matrix (Excel Format)
+**Template:** ${templateName}
+**Total Controls:** ${totalControls}
+**Generated:** ${new Date().toLocaleString()}
+
+## Document Summary
+This SCTM document contains a comprehensive traceability matrix showing:
+- Security control implementation status
+- STIG rule mappings and compliance
+- Evidence references and documentation
+- Findings and vulnerability assessments
+- LLM-generated implementation descriptions
+
+## Preview Note
+📊 **This is an Excel document** - The full SCTM contains detailed control information in spreadsheet format with:
+- Color-coded implementation status
+- Sortable and filterable control data
+- Professional formatting for compliance reviews
+- Multiple worksheets with summary data
+
+**To view the complete document:** Click the Download button to save as Excel (.xlsx) file
+
+---
+*Generated by ATO Compliance Agent with intelligent LLM-enhanced content*`;
+  
+  return preview;
+};
+
+const downloadDocument = async (jobId: string, documentTitle: string) => {
+    console.log('UPDATED: downloadDocument called with jobId:', jobId);
+    try {
+      const response = await authenticatedFetch(`/api/generation/result/${jobId}`);
+      if (!response.ok) {
+        throw new Error('Failed to download document');
+      }
+      
+      const result = await response.json();
+      if (result.success && result.result?.documents?.length > 0) {
+        // Create and download the first document
+        const document = result.result.documents[0];
+        
+        
+        // Determine MIME type and file extension based on document type
+        let mimeType = 'text/plain';
+        let fileExtension = '.txt';
+        let blobContent = document.content;
+        
+        if (document.type === 'sctm_excel') {
+          mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          fileExtension = '.xlsx';
+          // Decode base64 content for Excel files
+          let base64Content = '';
+          if (document.content?.documentContent) {
+            base64Content = document.content.documentContent;
+          } else if (typeof document.content === 'string') {
+            base64Content = document.content;
+          } else {
+            throw new Error('No document content available for download');
+          }
+          
+          try {
+            // CRITICAL: Unicode-safe base64 decoding without CSP violation
+            // Custom base64 decoder that handles Unicode content without data URLs
+            // This avoids both atob() Unicode errors and CSP violations
+            function base64ToArrayBuffer(base64: string): ArrayBuffer {
+              const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+              let bufferLength = base64.length * 0.75;
+              const len = base64.length;
+              let i = 0, p = 0;
+              let encoded1, encoded2, encoded3, encoded4;
+              
+              if (base64[base64.length - 1] === '=') {
+                bufferLength--;
+                if (base64[base64.length - 2] === '=') {
+                  bufferLength--;
+                }
+              }
+              
+              const buffer = new ArrayBuffer(bufferLength);
+              const bytes = new Uint8Array(buffer);
+              
+              for (i = 0; i < len; i += 4) {
+                encoded1 = chars.indexOf(base64[i]);
+                encoded2 = chars.indexOf(base64[i + 1]);
+                encoded3 = chars.indexOf(base64[i + 2]);
+                encoded4 = chars.indexOf(base64[i + 3]);
+                
+                bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+                bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+                bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+              }
+              
+              return buffer;
+            }
+            
+            const arrayBuffer = base64ToArrayBuffer(base64Content.replace(/\s/g, ''));
+            blobContent = new Uint8Array(arrayBuffer);
+          } catch (error) {
+            console.error('Base64 decoding error:', error);
+            throw new Error('Invalid document content format: ' + error.message);
+          }
+        } else if (document.type === 'rar_excel') {
+          mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          fileExtension = '.xlsx';
+          // Decode base64 content for Excel files
+          let base64Content = '';
+          if (document.content?.documentContent) {
+            base64Content = document.content.documentContent;
+          } else if (typeof document.content === 'string') {
+            base64Content = document.content;
+          } else {
+            throw new Error('No document content available for download');
+          }
+          
+          try {
+            // CRITICAL: Unicode-safe base64 decoding without CSP violation
+            // Custom base64 decoder that handles Unicode content without data URLs
+            // This avoids both atob() Unicode errors and CSP violations
+            function base64ToArrayBuffer(base64: string): ArrayBuffer {
+              const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+              let bufferLength = base64.length * 0.75;
+              const len = base64.length;
+              let i = 0, p = 0;
+              let encoded1, encoded2, encoded3, encoded4;
+              
+              if (base64[base64.length - 1] === '=') {
+                bufferLength--;
+                if (base64[base64.length - 2] === '=') {
+                  bufferLength--;
+                }
+              }
+              
+              const buffer = new ArrayBuffer(bufferLength);
+              const bytes = new Uint8Array(buffer);
+              
+              for (i = 0; i < len; i += 4) {
+                encoded1 = chars.indexOf(base64[i]);
+                encoded2 = chars.indexOf(base64[i + 1]);
+                encoded3 = chars.indexOf(base64[i + 2]);
+                encoded4 = chars.indexOf(base64[i + 3]);
+                
+                bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+                bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+                bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+              }
+              
+              return buffer;
+            }
+            
+            const arrayBuffer = base64ToArrayBuffer(base64Content.replace(/\s/g, ''));
+            blobContent = new Uint8Array(arrayBuffer);
+          } catch (error) {
+            console.error('Base64 decoding error:', error);
+            throw new Error('Invalid document content format: ' + error.message);
+          }
+        } else if (document.type === 'ssp' || document.type === 'sar') {
+          // Check if content is base64-encoded binary (Word doc) or plain text (markdown)
+          const documentContent = document.content.documentContent;
+          
+          // Detect if content is base64 by checking for base64 patterns and length
+          const isBase64 = documentContent && 
+                          typeof documentContent === 'string' &&
+                          documentContent.length > 1000 && // Base64 Word docs are typically large
+                          /^[A-Za-z0-9+/]*={0,2}$/.test(documentContent.replace(/\s/g, '')) &&
+                          !documentContent.includes('#') && // Markdown typically has headers
+                          !documentContent.includes('\n'); // Base64 is usually single line or minimal whitespace
+          
+          if (isBase64) {
+            // Handle base64-encoded Word document
+            mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            fileExtension = '.docx';
+            
+            try {
+              // CRITICAL: Unicode-safe base64 decoding without CSP violation
+              // Custom base64 decoder that handles Unicode content without data URLs
+              // This avoids both atob() Unicode errors and CSP violations
+              function base64ToArrayBuffer(base64: string): ArrayBuffer {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+                let bufferLength = base64.length * 0.75;
+                const len = base64.length;
+                let i = 0, p = 0;
+                let encoded1, encoded2, encoded3, encoded4;
+                
+                if (base64[base64.length - 1] === '=') {
+                  bufferLength--;
+                  if (base64[base64.length - 2] === '=') {
+                    bufferLength--;
+                  }
+                }
+                
+                const buffer = new ArrayBuffer(bufferLength);
+                const bytes = new Uint8Array(buffer);
+                
+                for (i = 0; i < len; i += 4) {
+                  encoded1 = chars.indexOf(base64[i]);
+                  encoded2 = chars.indexOf(base64[i + 1]);
+                  encoded3 = chars.indexOf(base64[i + 2]);
+                  encoded4 = chars.indexOf(base64[i + 3]);
+                  
+                  bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+                  bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+                  bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+                }
+                
+                return buffer;
+              }
+              
+              const arrayBuffer = base64ToArrayBuffer(documentContent.replace(/\s/g, ''));
+              blobContent = new Uint8Array(arrayBuffer);
+            } catch (error) {
+              console.error('Base64 decoding error:', error);
+              throw new Error('Invalid document content format: ' + error.message);
+            }
+          } else {
+            // Handle plain text/markdown content (fallback generation)
+            console.log('Detected text content, treating as markdown for download');
+            mimeType = 'text/markdown';
+            fileExtension = '.md';
+            blobContent = documentContent || 'No content available';
+          }
+        }
+        
+        const blob = new Blob([blobContent], { type: mimeType });
+        const url = window.URL.createObjectURL(blob);
+        
+        // Use a more reliable download approach
+        const downloadLink = globalThis.document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = `${documentTitle.replace(/\s+/g, '_')}_${jobId.substring(0, 8)}${fileExtension}`;
+        downloadLink.style.display = 'none';
+        
+        globalThis.document.body.appendChild(downloadLink);
+        downloadLink.click();
+        globalThis.document.body.removeChild(downloadLink);
+        
+        // Clean up the URL after a short delay
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        toast({
+          title: "Download Started",
+          description: `Downloaded ${documentTitle}`,
+        });
+      } else {
+        throw new Error('No documents available for download');
+      }
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: error instanceof Error ? error.message : 'Failed to download document',
+        variant: "destructive",
+      });
+    }
+  };
+
+  const viewDocument = async (jobId: string) => {
+    console.log('UPDATED: viewDocument called with jobId:', jobId);
+    try {
+      const response = await authenticatedFetch(`/api/generation/result/${jobId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch document');
+      }
+      
+      const result = await response.json();
+      if (result.success && result.result?.documents?.length > 0) {
+        // Open document content in new window
+        const document = result.result.documents[0];
+        let displayContent = '';
+        
+        // Generate appropriate preview based on document type
+        if (document.type === 'sctm_excel') {
+          displayContent = generateSCTMPreview(document);
+        } else if (document.type === 'rar_excel') {
+          displayContent = '📊 Excel document generated successfully. Use the download button to save the Risk Assessment Report (.xlsx) file.';
+        } else if (document.type === 'ssp' || document.type === 'sar') {
+          displayContent = '📄 Word document generated successfully. Use the download button to save the file.';
+        } else {
+          // For other document types, try to extract text content
+          if (typeof document.content === 'string') {
+            displayContent = document.content;
+          } else if (document.content && typeof document.content === 'object') {
+            // If content is an object, show a structured preview
+            displayContent = `Document Type: ${document.type}\nTitle: ${document.title}\n\nThis document has been generated successfully.\nUse the download button to save the file.`;
+          } else {
+            displayContent = 'Document generated successfully. Use the download button to save the file.';
+          }
+        }
+        
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head>
+                <title>${document.title}</title>
+                <style>
+                  body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+                  h1, h2, h3 { color: #333; }
+                  pre { background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; }
+                </style>
+              </head>
+              <body>
+                <h1>${document.title}</h1>
+                <pre>${displayContent}</pre>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
+        }
+      } else {
+        throw new Error('No documents available to view');
+      }
+    } catch (error) {
+      toast({
+        title: "View Failed",
+        description: error instanceof Error ? error.message : 'Failed to view document',
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getSystemName = (systemId: string) => {
+    const system = Array.isArray(systems) ? systems.find((s: any) => s.id === systemId) : null;
+    return system?.name || systemId;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Document Generation</h1>
+        <p className="text-muted-foreground">
+          Generate and manage ATO compliance documents for your systems
+        </p>
+      </div>
+
+      <Tabs defaultValue="generate" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="generate" data-testid="tab-generate">
+            <Package className="w-4 h-4 mr-2" />
+            Generate Documents
+          </TabsTrigger>
+          <TabsTrigger value="completed" data-testid="tab-completed">
+            <FileText className="w-4 h-4 mr-2" />
+            Generated Documents
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="generate">
+          <AtoGuidedWorkflow />
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Generated Documents
+                  </CardTitle>
+                  <CardDescription>
+                    View and download completed ATO documents and packages
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-32" data-testid="filter-status">
+                      <SelectValue placeholder="Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="running">Running</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => refetch()}
+                    data-testid="button-refresh"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="text-center py-8">
+                  <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">Failed to load generation jobs</p>
+                  <Button variant="outline" onClick={() => refetch()} className="mt-2">
+                    Try Again
+                  </Button>
+                </div>
+              ) : filteredJobs.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No generated documents found</p>
+                  <p className="text-sm text-muted-foreground">
+                    Start generating documents using the Generate Documents tab
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>System</TableHead>
+                      <TableHead>Document Types</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Progress</TableHead>
+                      <TableHead>Generated</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredJobs.map((job: GenerationJob) => (
+                      <TableRow key={job.id} data-testid={`job-row-${job.id.substring(0, 8)}`}>
+                        <TableCell className="font-medium">
+                          {getSystemName(job.systemId)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {(job.documentTypes || []).map((type) => (
+                              <Badge key={type} variant="secondary" className="text-xs">
+                                {documentTypeLabels[type] || type}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusColors[job.status] as any} className="flex items-center gap-1 w-fit">
+                            {statusIcons[job.status]}
+                            {job.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-primary h-2 rounded-full transition-all duration-300" 
+                                style={{ width: `${job.progress}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-muted-foreground">{job.progress}%</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {format(new Date(job.startTime), 'MMM d, yyyy HH:mm')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {job.status === 'completed' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => viewDocument(job.id)}
+                                  data-testid={`button-view-${job.id.substring(0, 8)}`}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => downloadDocument(job.id, job.documentTypes[0])}
+                                  data-testid={`button-download-${job.id.substring(0, 8)}`}
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                            {job.status === 'failed' && job.error && (
+                              <Badge variant="destructive" className="text-xs">
+                                Error
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
