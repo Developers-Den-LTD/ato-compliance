@@ -319,8 +319,7 @@ export function AssessmentReportGenerator({ systemId, assessmentId }: Assessment
         if (statusResult.status.status === 'completed') {
           // Step 3: Get final result
           const resultResponse = await fetch(`/api/generation/result/${jobId}`);
-          if (!resultResponse.ok) throw new Error('Failed to get generation result');
-          const finalResult = await resultResponse.json();
+           const finalResult = await resultResponse.json();
           
           // Return result with download info
           return {

@@ -4,14 +4,14 @@ import { TokenPayload } from '../types/auth.types';
 
 export const generateAccessToken = (payload: TokenPayload): string => {
   return jwt.sign(payload, authConfig.jwt.accessTokenSecret, {
-    expiresIn: authConfig.jwt.accessTokenExpiry,
-  });
+    expiresIn: authConfig.jwt.accessTokenExpiry as string,
+  } as jwt.SignOptions);
 };
 
 export const generateRefreshToken = (payload: TokenPayload): string => {
   return jwt.sign(payload, authConfig.jwt.refreshTokenSecret, {
-    expiresIn: authConfig.jwt.refreshTokenExpiry,
-  });
+    expiresIn: authConfig.jwt.refreshTokenExpiry as string,
+  } as jwt.SignOptions);
 };
 
 export const verifyAccessToken = (token: string): TokenPayload => {

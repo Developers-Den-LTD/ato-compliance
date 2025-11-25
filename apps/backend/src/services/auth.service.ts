@@ -29,7 +29,7 @@ export class AuthService {
         username: data.username,
         passwordHash,
       })
-      .returning({ id: users.id, username: users.username });
+      .returning({ id: users.id, username: users.username, role: users.role });
 
     // Generate tokens
     const tokenPayload: TokenPayload = {
@@ -55,7 +55,12 @@ export class AuthService {
   async login(data: LoginRequest) {
     // Find user
     const [user] = await db
-      .select()
+      .select({ 
+        id: users.id, 
+        username: users.username, 
+        passwordHash: users.passwordHash,
+        role: users.role 
+      })
       .from(users)
       .where(eq(users.username, data.username))
       .limit(1);
@@ -100,7 +105,7 @@ export class AuthService {
 
     // Verify user still exists
     const [user] = await db
-      .select()
+      .select({ id: users.id, username: users.username, role: users.role })
       .from(users)
       .where(eq(users.id, payload.userId))
       .limit(1);

@@ -29,10 +29,8 @@ app.get('/health', async (_req, res) => {
 // Mount API routes
 app.use('/api', routes);
 
-// Legacy endpoints (keep for backward compatibility)
-app.get('/api/systems', (_req, res) => {
-  res.json({ data: [], message: 'Systems endpoint ready' });
-});
+// Legacy endpoint (keep for backward compatibility)
+
 
 app.get('/api/message', (_req, res) => {
   res.json({ 

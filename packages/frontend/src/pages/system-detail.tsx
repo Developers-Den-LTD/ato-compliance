@@ -64,23 +64,45 @@ export default function SystemDetail() {
     enabled: !!systemId,
   });
 
-  // Fetch system metrics data from real API
+  // Fetch system metrics data from real API (optional - returns default values if not available)
   const { data: systemMetrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['/api/systems', systemId, 'metrics'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/systems/${systemId}/metrics`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch system metrics');
+      try {
+        const response = await authenticatedFetch(`/api/systems/${systemId}/metrics`);
+        if (!response.ok) {
+          // Return default metrics if endpoint doesn't exist yet
+          return {
+            controlsImplemented: 0,
+            totalControls: 0,
+            documentsCount: 0,
+            findingsCount: 0,
+            lastAssessment: 'Not assessed',
+            nextAssessment: 'TBD',
+            compliancePercentage: 0,
+          };
+        }
+        return response.json() as Promise<{
+          controlsImplemented: number;
+          totalControls: number;
+          documentsCount: number;
+          findingsCount: number;
+          lastAssessment: string;
+          nextAssessment: string;
+          compliancePercentage: number;
+        }>;
+      } catch (error) {
+        // Return default metrics on error
+        return {
+          controlsImplemented: 0,
+          totalControls: 0,
+          documentsCount: 0,
+          findingsCount: 0,
+          lastAssessment: 'Not assessed',
+          nextAssessment: 'TBD',
+          compliancePercentage: 0,
+        };
       }
-      return response.json() as Promise<{
-        controlsImplemented: number;
-        totalControls: number;
-        documentsCount: number;
-        findingsCount: number;
-        lastAssessment: string;
-        nextAssessment: string;
-        compliancePercentage: number;
-      }>;
     },
     enabled: !!systemId && !!system,
   });

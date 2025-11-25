@@ -118,7 +118,7 @@ export function SystemRegistrationModal({ open, onOpenChange }: SystemRegistrati
   // Create system mutation
   const createSystemMutation = useMutation({
     mutationFn: async (data: EnhancedInsertSystem) => {
-      const response = await apiRequest('POST', '/api/systems/enhanced', data);
+      const response = await apiRequest('POST', '/api/systems', data);
       return response.json();
     },
     onSuccess: (newSystem) => {

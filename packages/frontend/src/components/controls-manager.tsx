@@ -77,7 +77,7 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
 
   // Fetch all controls for the system's impact level
   const { data: controlsData, isLoading: controlsLoading } = useQuery({
-    queryKey: ['/api/controls', 'v2'],
+    queryKey: ['/api/controls'],
     queryFn: async () => {
       const response = await authenticatedFetch('/api/controls?limit=2000');
       if (!response.ok) throw new Error('Failed to fetch controls');
@@ -90,32 +90,31 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
   const controls = Array.isArray(controlsData?.controls) ? controlsData.controls : [];
 
   // Fetch system controls (implementation status and narratives)
-  const { data: systemControls = [], isLoading: systemControlsLoading, refetch: refetchSystemControls } = useQuery({
+  const { data: systemControlsResponse, isLoading: systemControlsLoading, refetch: refetchSystemControls } = useQuery({
     queryKey: ['systemControls', systemId],
     queryFn: async () => {
-      const token = localStorage.getItem('sessionToken');
-      const headers: Record<string, string> = token 
-        ? { 'X-Session-Token': token }
-        : { 'Authorization': 'Bearer dev-token-123' };
+      const token = localStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       
       const response = await fetch(`/api/systems/${systemId}/controls`, {
-        headers
+        headers,
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch system controls');
       const data = await response.json();
       
-      // Ensure data is an array before using array methods
-      if (!Array.isArray(data)) {
-        console.error('Expected array of system controls, got:', data);
-        return [];
-      }
-      
-      return data as SystemControl[];
+      // The API returns { systemControls: [...], pagination: {...} }
+      return data.systemControls || [];
     },
     enabled: !!systemId,
     staleTime: 0, // Always fetch fresh data
     gcTime: 0 // Don't cache
   });
+
+  const systemControls = systemControlsResponse || [];
 
   // Save implementation narrative
   const saveNarrative = useMutation({
@@ -125,13 +124,29 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
       status: string;
       assignedTo?: string;
     }) => {
-      return await apiRequest('PUT', '/api/systems/controls', {
-        systemId,
-        controlId,
-        implementationText: narrative,
-        status,
-        assignedTo
+      const token = localStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      
+      const response = await fetch(`/api/systems/${systemId}/controls/${controlId}`, {
+        method: 'PUT',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          implementationText: narrative,
+          status,
+          responsibleParty: assignedTo
+        })
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save narrative');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -239,13 +254,27 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
   const handleStatusChange = async (controlId: string, newStatus: string) => {
     try {
       const systemControl = systemControlsLookup[controlId];
-      await apiRequest('PUT', '/api/systems/controls', {
-        systemId,
-        controlId,
-        implementationText: systemControl?.implementationText,
-        status: newStatus,
-        assignedTo: systemControl?.assignedTo
+      const token = localStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      
+      const response = await fetch(`/api/systems/${systemId}/controls/${controlId}`, {
+        method: 'PUT',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          implementationText: systemControl?.implementationText,
+          status: newStatus,
+          responsibleParty: systemControl?.assignedTo
+        })
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update status');
+      }
       
       toast({
         title: 'Status Updated',

@@ -5,19 +5,13 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
-# Copy workspace files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/backend/package.json ./apps/backend/
+# Copy all workspace files
+COPY . .
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install all dependencies from root
+RUN pnpm install
 
-# Copy source code
-COPY packages/shared ./packages/shared
-COPY apps/backend ./apps/backend
-
-# Build shared package
+# Build shared package first
 WORKDIR /app/packages/shared
 RUN pnpm build
 

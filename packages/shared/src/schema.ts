@@ -55,8 +55,9 @@ export const systems = pgTable("systems", {
   description: text("description"),
   category: text("category").notNull(), // "Major Application", "General Support System"
   impactLevel: text("impact_level").notNull(), // "High", "Moderate", "Low"
-  complianceStatus: text("compliance_status").notNull(), // "compliant", "non-compliant", "in-progress", "not-assessed"
+  complianceStatus: text("compliance_status").notNull().default("not-assessed"), // "compliant", "non-compliant", "in-progress", "not-assessed"
   owner: text("owner"),
+  createdBy: varchar("created_by"), // User ID who created the system
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
   // STIG Integration Fields
@@ -67,22 +68,25 @@ export const systems = pgTable("systems", {
   lastStigUpdate: timestamp("last_stig_update"),
 });
 
-// Security Controls (Multi-Framework Support)
+// Security Controls (Multi-Framework Support) - Read-only library
 export const controls = pgTable("controls", {
-  id: varchar("id").primaryKey(), // e.g., "AC-1", "AU-2", "FedRAMP-AC-1" - make unique across frameworks
-  framework: varchar("framework", { length: 50 }).notNull().default("NIST-800-53"), // Framework identifier
-  family: text("family").notNull(), // e.g., "Access Control", "Audit and Accountability"
+  id: varchar("id", { length: 50 }).primaryKey(), // e.g., "AC-1", "AC-2(1)"
+  framework: varchar("framework", { length: 50 }).notNull().default("NIST-800-53"),
+  family: text("family").notNull(), // e.g., "Access Control"
   title: text("title").notNull(),
   description: text("description"),
-  baseline: text("baseline").array().notNull(), // ["Low", "Moderate", "High"] or ["Low", "Moderate", "High", "FedRAMP Low", "FedRAMP Moderate", "FedRAMP High"]
-  priority: text("priority"), // e.g., "P1", "P2", "P3"
-  enhancement: text("enhancement"), // e.g., "(1)", "(2)" for control enhancements
+  baseline: text("baseline").array().notNull(), // ["Low", "Moderate", "High"]
+  priority: text("priority"), // "P1", "P2", "P3"
+  enhancement: text("enhancement"), // null, "(1)", "(2)"
+  parentControlId: varchar("parent_control_id", { length: 50 }), // null or "AC-2"
   supplementalGuidance: text("supplemental_guidance"),
-  status: text("status").notNull().default("not_implemented"), // compliance status
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
   frameworkIdx: index("idx_controls_framework").on(table.framework),
+  familyIdx: index("idx_controls_family").on(table.family),
 }));
+
+
 
 // STIG Rules mapping
 export const stigRules = pgTable("stig_rules", {
@@ -309,13 +313,18 @@ export const providerSettings = pgTable("provider_settings", {
 export const systemControls = pgTable("system_controls", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   systemId: varchar("system_id").references(() => systems.id, { onDelete: "cascade" }).notNull(),
-  controlId: varchar("control_id").references(() => controls.id, { onDelete: "cascade" }).notNull(),
-  status: text("status").notNull().default("not_implemented"), // "not_implemented", "partial", "implemented", "not_applicable"
-  assignedTo: text("assigned_to"),
-  implementationText: text("implementation_text"), // Detailed implementation narrative
-  lastUpdated: timestamp("last_updated").default(sql`CURRENT_TIMESTAMP`),
+  controlId: varchar("control_id", { length: 50 }).references(() => controls.id, { onDelete: "cascade" }).notNull(),
+  status: text("status").notNull().default("not_implemented"), // not_implemented, planned, partially_implemented, implemented, not_applicable
+  implementationText: text("implementation_text"),
+  responsibleParty: text("responsible_party"),
+  implementationDate: timestamp("implementation_date"),
+  lastUpdated: timestamp("last_updated").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
-  // Prevent duplicate system-control assignments
+  systemIdx: index("idx_system_controls_system").on(table.systemId),
+  controlIdx: index("idx_system_controls_control").on(table.controlId),
+  statusIdx: index("idx_system_controls_status").on(table.status),
   uniqueMapping: uniqueIndex("uq_system_controls").on(table.systemId, table.controlId),
 }));
 

@@ -30,21 +30,23 @@ export default function Controls() {
 
   // Fetch controls from API
   const { data: controlsResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/controls', 'v2', { family: selectedFamily, baseline: selectedBaseline }],
-    queryFn: async ({ queryKey }) => {
-      const [endpoint, params] = queryKey as [string, Record<string, string>];
+    queryKey: ['/api/controls', { family: selectedFamily, baseline: selectedBaseline }],
+    queryFn: async () => {
       const searchParams = new URLSearchParams();
-      if (params.family) searchParams.append('family', params.family);
-      if (params.baseline) searchParams.append('baseline', params.baseline);
+      if (selectedFamily) searchParams.append('family', selectedFamily);
+      if (selectedBaseline) searchParams.append('baseline', selectedBaseline);
       searchParams.append('limit', '2000');
       
-      const url = params.family || params.baseline ? 
-        `${endpoint}?${searchParams.toString()}` : endpoint;
+      const url = `/api/controls?${searchParams.toString()}`;
+      
+      const token = localStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       
       const response = await fetch(url, {
-        headers: {
-          'Authorization': 'Bearer dev-token-123'
-        },
+        headers,
         credentials: 'include'
       });
       
