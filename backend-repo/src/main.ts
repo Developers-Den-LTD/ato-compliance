@@ -1,12 +1,16 @@
+import { APP_NAME } from '@ato-compliance/shared';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
 import path from 'path';
-import { APP_NAME, APP_VERSION } from './schema';
+//import { APP_NAME, APP_VERSION } from './schema';
 import { testConnection } from './db';
 import routes from './routes';
 
+
+const APP_NAME = 'Ato Compliance';
+const APP_VERSION = '1.0.0';
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
