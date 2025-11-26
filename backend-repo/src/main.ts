@@ -17,9 +17,10 @@ const PORT = process.env.PORT || 3000;
 
 // Allowed origins for CORS (local + production)
 const allowedOrigins = [
-  'http://localhost:5173',            // local dev
-  process.env.FRONTEND_URL || ''     // production URL
-];
+  'http://localhost:5173',                                      // local dev
+  'https://ato-compliance-frontend-kd6j.vercel.app',          // production frontend
+  process.env.FRONTEND_URL || ''                               // custom frontend URL
+].filter(Boolean); // Remove empty strings
 
 const app = express();
 

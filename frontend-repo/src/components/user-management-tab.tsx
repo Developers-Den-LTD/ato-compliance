@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { authApi } from '@/lib/authApi';
 import { queryClient } from '@/lib/queryClient';
+import { API_URL } from '@/config/api';
 
 interface User {
   id: string;
@@ -49,7 +50,7 @@ export function UserManagementTab() {
         ...(search && { search }),
       });
       const response = await authApi.authenticatedFetch(
-        `http://localhost:3000/api/users?${params}`
+        `${API_URL}/users?${params}`
       );
       if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
@@ -59,7 +60,7 @@ export function UserManagementTab() {
   const createMutation = useMutation({
     mutationFn: async (userData: { username: string; password: string; role: string }) => {
       const response = await authApi.authenticatedFetch(
-        `http://localhost:3000/api/users`,
+        `${API_URL}/users`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -93,7 +94,7 @@ export function UserManagementTab() {
   const deleteMutation = useMutation({
     mutationFn: async (userId: string) => {
       const response = await authApi.authenticatedFetch(
-        `http://localhost:3000/api/users/${userId}`,
+        `${API_URL}/users/${userId}`,
         { method: 'DELETE' }
       );
       if (!response.ok) {
