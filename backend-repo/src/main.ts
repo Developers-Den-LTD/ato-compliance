@@ -1,4 +1,4 @@
-import { APP_NAME } from '@ato-compliance/shared';
+//import { APP_NAME } from '@ato-compliance/shared';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
