@@ -1,0 +1,44 @@
+{
+  "name": "ato-compliance-backend",
+  "version": "1.0.0",
+  "description": "ATO Compliance Agent - Backend API",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:start": "docker-compose up -d",
+    "db:stop": "docker-compose down",
+    "create-admin": "tsx scripts/create-admin-user.ts",
+    "create-admin": "tsx scripts/create-admin-user.ts"
+  },
+  "keywords": ["ato", "compliance", "nist", "stig"],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "postgres": "^3.4.7",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.19.25",
+    "drizzle-kit": "^0.31.7",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
