@@ -56,7 +56,7 @@ app.use('/api', routes);
 // Legacy endpoint (keep for backward compatibility)
 app.get('/api/message', (_req, res) => {
   res.json({ 
-    message: 'Hello from the backend!',
+    message: 'Hello from the backend! Backend is running.',
     timestamp: new Date().toISOString(),
     success: true
   });
