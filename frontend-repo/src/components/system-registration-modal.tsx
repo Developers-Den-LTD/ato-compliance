@@ -13,9 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { type InsertSystem } from "@shared/schema";
-import { Loader2, Shield, HardDrive, Server, Smartphone, Cloud, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, Shield, HardDrive, Server, Smartphone, Cloud, AlertCircle, CheckCircle, Info } from "lucide-react";
 import { z } from "zod";
+import { StigProfileDetailModal } from "./stig-profile-detail-modal";
 
 interface SystemRegistrationModalProps {
   open: boolean;
@@ -25,15 +25,15 @@ interface SystemRegistrationModalProps {
 // Enhanced form schema with STIG profile fields
 const enhancedFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
+  description: z.string().default("TBD"),
   category: z.enum(["Major Application", "General Support System"]),
   impactLevel: z.enum(["High", "Moderate", "Low"]),
-  owner: z.string().default("System Administrator"),
-  complianceStatus: z.enum(["compliant", "non-compliant", "in-progress", "not-started", "not-assessed"]).default('not-assessed'),
+  owner: z.string().min(1),
+  complianceStatus: z.enum(["compliant", "non-compliant", "in-progress", "not-started", "not-assessed"]),
   systemType: z.enum(["Application", "Operating System", "Network Device", "Mobile Device", "Cloud"]),
-  operatingSystem: z.string().optional(),
-  stigProfiles: z.array(z.string()).default([]),
-  autoStigUpdates: z.boolean().default(true)
+  operatingSystem: z.string().default(""),
+  stigProfiles: z.array(z.string()),
+  autoStigUpdates: z.boolean()
 });
 
 type EnhancedInsertSystem = z.infer<typeof enhancedFormSchema>;
@@ -44,7 +44,9 @@ type StigProfile = {
   stig_title: string;
   version: string;
   category: string;
-  rule_count: number;
+  rule_type: string;
+  total_rules: number;
+  applicable_os?: string[];
 };
 
 // System type configuration
@@ -79,19 +81,22 @@ const SYSTEM_TYPE_CONFIG = {
 export function SystemRegistrationModal({ open, onOpenChange }: SystemRegistrationModalProps) {
   const { toast } = useToast();
   const [selectedSystemType, setSelectedSystemType] = useState<string>("");
+  const [detailProfile, setDetailProfile] = useState<StigProfile | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null);
   
-  const form = useForm<EnhancedInsertSystem>({
+  const form = useForm({
     resolver: zodResolver(enhancedFormSchema),
     defaultValues: {
       name: "",
       description: "TBD",
-      category: "Major Application",
-      impactLevel: "Moderate",
-      complianceStatus: "not-assessed",
+      category: "Major Application" as const,
+      impactLevel: "Moderate" as const,
+      complianceStatus: "not-assessed" as const,
       owner: "System Administrator",
-      systemType: "Application",
+      systemType: "Application" as const,
       operatingSystem: "",
-      stigProfiles: [],
+      stigProfiles: [] as string[],
       autoStigUpdates: true
     }
   });
@@ -99,17 +104,26 @@ export function SystemRegistrationModal({ open, onOpenChange }: SystemRegistrati
   // Watch system type changes to update OS options
   const watchedSystemType = form.watch("systemType");
   useEffect(() => {
-    setSelectedSystemType(watchedSystemType);
-    // Reset OS selection when system type changes
-    form.setValue("operatingSystem", "");
-    form.setValue("stigProfiles", []);
-  }, [watchedSystemType, form]);
+    if (watchedSystemType !== selectedSystemType) {
+      setSelectedSystemType(watchedSystemType);
+      // Reset OS selection when system type changes
+      form.setValue("operatingSystem", "");
+      form.setValue("stigProfiles", []);
+    }
+  }, [watchedSystemType, selectedSystemType, form]);
+
+  // Watch for OS changes to refetch STIG profiles
+  const watchedOS = form.watch("operatingSystem");
 
   // Fetch available STIG profiles
   const { data: stigProfiles = [], isLoading: stigProfilesLoading } = useQuery<StigProfile[]>({
-    queryKey: ['/api/systems/stig-profiles', selectedSystemType],
+    queryKey: ['/api/stig/available-profiles', selectedSystemType, watchedOS],
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/systems/stig-profiles?category=${selectedSystemType}`);
+      const params = new URLSearchParams({ category: selectedSystemType });
+      if (watchedOS) {
+        params.append('operatingSystem', watchedOS);
+      }
+      const response = await apiRequest('GET', `/api/stig/available-profiles?${params.toString()}`);
       return response.json();
     },
     enabled: !!selectedSystemType
@@ -160,6 +174,31 @@ export function SystemRegistrationModal({ open, onOpenChange }: SystemRegistrati
       ? currentProfiles.filter(id => id !== stigId)
       : [...currentProfiles, stigId];
     form.setValue("stigProfiles", newProfiles);
+  };
+
+  const handleProfileClick = async (profile: StigProfile) => {
+    // Set loading state
+    setLoadingProfileId(profile.stig_id);
+    
+    // Fetch detailed profile information
+    try {
+      const response = await apiRequest('GET', `/api/stig/profiles/${profile.stig_id}`);
+      const detailedProfile = await response.json();
+      setDetailProfile(detailedProfile);
+      setDetailModalOpen(true);
+    } catch (error) {
+      console.error('Error fetching profile details:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load profile details. Showing basic information.",
+        variant: "destructive",
+      });
+      // Fallback to basic profile data
+      setDetailProfile(profile);
+      setDetailModalOpen(true);
+    } finally {
+      setLoadingProfileId(null);
+    }
   };
 
   const systemTypeConfig = SYSTEM_TYPE_CONFIG[selectedSystemType as keyof typeof SYSTEM_TYPE_CONFIG];
@@ -402,42 +441,74 @@ export function SystemRegistrationModal({ open, onOpenChange }: SystemRegistrati
                         <span className="text-sm text-gray-600">Loading STIG profiles...</span>
                       </div>
                     ) : stigProfiles.length > 0 ? (
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {stigProfiles.map((profile) => (
-                          <div
-                            key={profile.stig_id}
-                            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                              selectedProfiles.includes(profile.stig_id)
-                                ? 'bg-green-50 border-green-300'
-                                : 'bg-white border-gray-200 hover:border-blue-300'
-                            }`}
-                            onClick={() => toggleStigProfile(profile.stig_id)}
-                          >
-                            <div className="flex items-start gap-2">
-                              <Checkbox 
-                                checked={selectedProfiles.includes(profile.stig_id)}
-                                onCheckedChange={() => {}}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="font-medium text-sm truncate">{profile.stig_title}</h4>
-                                  {selectedProfiles.includes(profile.stig_id) && (
-                                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {profile.rule_count} rules
-                                  </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    {profile.version}
-                                  </Badge>
+                      <>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                          <Info className="w-3 h-3" />
+                          Click on a profile to view details, or use the checkbox to select it
+                        </p>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {stigProfiles.map((profile) => {
+                            const isSelected = selectedProfiles.includes(profile.stig_id);
+                            const isLoading = loadingProfileId === profile.stig_id;
+                            return (
+                              <div
+                                key={profile.stig_id}
+                                className={`p-3 border rounded-lg transition-all duration-200 relative ${
+                                  isSelected
+                                    ? 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700 shadow-sm'
+                                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md'
+                                } ${isLoading ? 'opacity-60' : ''}`}
+                              >
+                                {isLoading && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-900/50 rounded-lg z-10">
+                                    <Loader2 className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400" />
+                                  </div>
+                                )}
+                                <div className="flex items-start gap-2">
+                                  <Checkbox 
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleStigProfile(profile.stig_id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    disabled={isLoading}
+                                  />
+                                  <div 
+                                    className={`flex-1 min-w-0 ${isLoading ? 'cursor-wait' : 'cursor-pointer'}`}
+                                    onClick={() => !isLoading && handleProfileClick(profile)}
+                                  >
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{profile.stig_title}</h4>
+                                      {isSelected && (
+                                        <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="secondary" className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                        {profile.total_rules} rules
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400">
+                                        {profile.version}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => !isLoading && handleProfileClick(profile)}
+                                    disabled={isLoading}
+                                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="View details"
+                                  >
+                                    {isLoading ? (
+                                      <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                                    ) : (
+                                      <Info className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                    )}
+                                  </button>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      </>
                     ) : (
                       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <div className="flex items-center gap-2">
@@ -535,6 +606,13 @@ export function SystemRegistrationModal({ open, onOpenChange }: SystemRegistrati
           </form>
         </Form>
       </DialogContent>
+
+      {/* STIG Profile Detail Modal */}
+      <StigProfileDetailModal
+        profile={detailProfile}
+        open={detailModalOpen}
+        onOpenChange={setDetailModalOpen}
+      />
     </Dialog>
   );
 }

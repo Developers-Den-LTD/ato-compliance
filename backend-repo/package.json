@@ -15,7 +15,10 @@
     "db:stop": "docker-compose down",
     "create-admin": "tsx scripts/create-admin-user.ts",
     "import-controls": "tsx scripts/import-nist-controls.ts",
-    "check-controls": "tsx scripts/check-controls-status.ts"
+    "check-controls": "tsx scripts/check-controls-status.ts",
+    "import-stig": "tsx scripts/import-stig-data.ts",
+    "test-stig": "tsx scripts/test-stig-data.ts",
+    "test-stig-service": "tsx scripts/test-stig-service.ts"
   },
   "keywords": ["ato", "compliance", "nist", "stig"],
   "author": "",
