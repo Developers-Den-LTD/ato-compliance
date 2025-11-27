@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend-repo
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "3000:3000"   # host:container
+    env_file:
+      - ./backend-repo/.env          # if you have one
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend-repo
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "5173:80"    # Vite build served by Nginx
+    depends_on:
+      - backend
+    restart: always

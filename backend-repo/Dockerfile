@@ -1,39 +1,32 @@
-FROM node:20-alpine AS builder
+# ---- Build Stage ----
+FROM node:18-alpine AS builder
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
-# Copy backend source
-COPY src ./src
-COPY tsconfig.json ./
-COPY drizzle.config.ts ./
+COPY . .
 
-# Build backend
-RUN npm run build:backend
+# Build TypeScript to JavaScript (creates dist/)
+RUN npm run build
 
-# Production stage
-FROM node:20-alpine
 
-WORKDIR /app
 
-# Copy package files and install production dependencies only
+# ---- Production Stage ----
+FROM node:18-alpine
+
+WORKDIR /usr/src/app
+
 COPY package*.json ./
 RUN npm install --production
 
-# Copy built files from builder
-COPY --from=builder /app/dist ./dist
-COPY drizzle.config.ts ./
+# Copy only built files from builder stage
+COPY --from=builder /usr/src/app/dist ./dist
 
-# Copy environment file template
-COPY .env.example .env
+# If you have static folders like 'public' or 'uploads', copy them too:
+# COPY --from=builder /usr/src/app/public ./public
 
 EXPOSE 3000
-
-ENV NODE_ENV=production
 
 CMD ["node", "dist/main.js"]
