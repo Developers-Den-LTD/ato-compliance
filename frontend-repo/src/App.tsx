@@ -96,7 +96,7 @@ function AuthenticatedApp() {
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-2">
@@ -106,7 +106,7 @@ function AuthenticatedApp() {
               <ThemeToggle />
             </div>
           </header>
-          <main className="flex-1 overflow-auto p-6 bg-background">
+          <main className="flex-1 min-w-0 overflow-auto p-6 bg-background">
             <ProtectedRouter />
           </main>
         </div>

@@ -2,12 +2,14 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ControlTable } from "@/components/control-table";
-import { ControlImportDialog } from "@/components/control-import-dialog";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Import, Download, Shield, AlertCircle, Upload } from "lucide-react";
+import { Download, Shield, AlertCircle, Import } from "lucide-react";
+import { buildApiUrl } from "@/config/api";
+
 // Control type definition
 interface Control {
   id: string;
@@ -23,7 +25,6 @@ interface Control {
   createdAt: string | null;
   status?: string;
 }
-import { buildApiUrl } from "@/config/api";
 
 interface ControlsResponse {
   controls: Control[];
@@ -39,7 +40,6 @@ interface ControlsResponse {
 export default function Controls() {
   const [selectedFamily, setSelectedFamily] = useState<string>("");
   const [selectedBaseline, setSelectedBaseline] = useState<string>("");
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch controls from API
@@ -156,7 +156,6 @@ export default function Controls() {
     title: control.title,
     baseline: (Array.isArray(control.baseline) && control.baseline.length > 0 ? control.baseline[0] : "Low") as "Low" | "Moderate" | "High",
     implementationStatus: 'not-assessed' as const, // Controls library doesn't have status
-    ruleType: 'stig' as const, // NIST controls are mapped to STIG
     lastAssessed: control.createdAt ? new Date(control.createdAt).toISOString().split('T')[0] : undefined,
     assignedTo: undefined
   }));
@@ -174,7 +173,7 @@ export default function Controls() {
       // Check current STIG status
       const response = await fetch(buildApiUrl('/api/assessment/rule-types'), {
         headers: {
-          'Authorization': 'Bearer dev-token-123'
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         },
         credentials: 'include'
       });
@@ -207,36 +206,30 @@ export default function Controls() {
   };
 
   return (
-    <div className="space-y-6" data-testid="controls-page">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-full overflow-x-hidden min-w-0" data-testid="controls-page">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">NIST 800-53 Controls</h1>
           <p className="text-muted-foreground">
             Manage and track implementation status of security controls across your systems
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={() => setImportDialogOpen(true)}
-            data-testid="button-import-controls"
-            disabled={isLoading}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Import/Export Controls
-          </Button>
+        <div className="flex gap-2 flex-wrap">
           <Button 
             variant="outline" 
             onClick={handleExportControls}
             data-testid="button-export-controls"
             disabled={isLoading}
+            className="whitespace-nowrap"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export
+            Export Controls
           </Button>
           <Button 
             onClick={handleImportSTIG}
             data-testid="button-import-stig"
             disabled={isLoading}
+            className="whitespace-nowrap"
           >
             <Import className="h-4 w-4 mr-2" />
             Import STIG
@@ -245,7 +238,7 @@ export default function Controls() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 flex-wrap">
         <select
           value={selectedFamily}
           onChange={(e) => setSelectedFamily(e.target.value)}
@@ -290,7 +283,7 @@ export default function Controls() {
       {/* Loading State */}
       {isLoading && (
         <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[...Array(8)].map((_, i) => (
               <Card key={i}>
                 <CardHeader className="pb-2">
@@ -354,7 +347,7 @@ export default function Controls() {
       {!isLoading && !error && (
         <>
           {Object.keys(familyStats).length > 0 && (
-            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <div className="w-full grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {Object.entries(familyStats).map(([family, stats]) => {
                 const percentage = stats.total > 0 ? Math.round((stats.implemented / stats.total) * 100) : 0;
                 return (
@@ -388,7 +381,7 @@ export default function Controls() {
             </div>
           )}
 
-          {/* Controls Table */}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -421,11 +414,7 @@ export default function Controls() {
         </>
       )}
 
-      {/* Control Import/Export Dialog */}
-      <ControlImportDialog
-        open={importDialogOpen}
-        onOpenChange={setImportDialogOpen}
-      />
+
     </div>
   );
 }
