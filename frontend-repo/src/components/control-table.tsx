@@ -40,6 +40,8 @@ const baselineColors = {
 export function ControlTable({ controls, onViewControl, className }: ControlTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBaseline, setFilterBaseline] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -47,8 +49,9 @@ export function ControlTable({ controls, onViewControl, className }: ControlTabl
     const matchesSearch = control.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       control.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       control.family.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = !filterBaseline || control.baseline === filterBaseline;
-    return matchesSearch && matchesFilter;
+    const matchesBaseline = !filterBaseline || control.baseline === filterBaseline;
+    const matchesStatus = !filterStatus || control.implementationStatus === filterStatus;
+    return matchesSearch && matchesBaseline && matchesStatus;
   });
 
   // Calculate pagination
@@ -67,6 +70,20 @@ export function ControlTable({ controls, onViewControl, className }: ControlTabl
     setFilterBaseline(value);
     setCurrentPage(1);
   };
+
+  const handleStatusChange = (value: string) => {
+    setFilterStatus(value);
+    setCurrentPage(1);
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm("");
+    setFilterBaseline("");
+    setFilterStatus("");
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = searchTerm || filterBaseline || filterStatus;
 
   const handleViewControl = (controlId: string) => {
     console.log(`Viewing control: ${controlId}`);
@@ -99,12 +116,47 @@ export function ControlTable({ controls, onViewControl, className }: ControlTabl
             <option value="High">High</option>
           </select>
 
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowMoreFilters(!showMoreFilters)}
+          >
             <Filter className="h-4 w-4 mr-2" />
             More Filters
           </Button>
+          {hasActiveFilters && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={clearAllFilters}
+            >
+              Clear All
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* More Filters Section */}
+      {showMoreFilters && (
+        <div className="p-4 border rounded-md bg-muted/50">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+              >
+                <option value="">All Statuses</option>
+                <option value="compliant">Compliant</option>
+                <option value="non-compliant">Non-Compliant</option>
+                <option value="in-progress">In Progress</option>
+                <option value="not-assessed">Not Assessed</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-md border w-full">
         <div className="w-full overflow-x-auto">
