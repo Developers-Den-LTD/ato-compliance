@@ -54,6 +54,16 @@ export class ControlController {
     }
   }
 
+  async getControlStats(req: Request, res: Response) {
+    try {
+      const stats = await controlService.getControlStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching control stats:', error);
+      res.status(500).json({ error: 'Failed to fetch control stats' });
+    }
+  }
+
   // System Control Implementation endpoints
   async getSystemControls(req: Request, res: Response) {
     try {

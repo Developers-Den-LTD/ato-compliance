@@ -97,6 +97,58 @@ export class ControlService {
     return families.map(f => f.family);
   }
 
+  async getControlStats() {
+    // Get total count
+    const [{ total }] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(controls);
+
+    // Get counts by family
+    const familyStats = await db
+      .select({
+        family: controls.family,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(controls)
+      .groupBy(controls.family)
+      .orderBy(controls.family);
+
+    // Get counts by baseline
+    const baselineStats = await db
+      .select({
+        baseline: sql<string>`unnest(${controls.baseline})`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(controls)
+      .groupBy(sql`unnest(${controls.baseline})`);
+
+    // Get counts by priority
+    const priorityStats = await db
+      .select({
+        priority: controls.priority,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(controls)
+      .where(sql`${controls.priority} IS NOT NULL`)
+      .groupBy(controls.priority);
+
+    return {
+      total,
+      byFamily: familyStats.reduce((acc, s) => {
+        acc[s.family] = s.count;
+        return acc;
+      }, {} as Record<string, number>),
+      byBaseline: baselineStats.reduce((acc, s) => {
+        acc[s.baseline] = s.count;
+        return acc;
+      }, {} as Record<string, number>),
+      byPriority: priorityStats.reduce((acc, s) => {
+        acc[s.priority || 'unknown'] = s.count;
+        return acc;
+      }, {} as Record<string, number>),
+    };
+  }
+
   // System Control Implementation methods
   async getSystemControls(systemId: string, params: GetControlsParams = {}) {
     const { page = 1, limit = 50, search = '', family, baseline } = params;

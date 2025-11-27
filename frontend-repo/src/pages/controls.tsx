@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ControlTable } from "@/components/control-table";
 import { ControlImportDialog } from "@/components/control-import-dialog";
@@ -7,9 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Import, Download, Shield, AlertCircle, Upload } from "lucide-react";
-import type { Control } from "@shared/schema";
+// Control type definition
+interface Control {
+  id: string;
+  framework: string;
+  family: string;
+  title: string;
+  description: string | null;
+  baseline: string[];
+  priority: string | null;
+  enhancement: string | null;
+  parentControlId: string | null;
+  supplementalGuidance: string | null;
+  createdAt: string | null;
+  status?: string;
+}
 import { buildApiUrl } from "@/config/api";
 
 interface ControlsResponse {
@@ -55,40 +68,63 @@ export default function Controls() {
         throw new Error(`Failed to fetch controls: ${response.status}`);
       }
       
-      return response.json();
+      const data = await response.json();
+      // Transform pagination response to match expected format
+      return {
+        controls: data.controls || [],
+        total: data.pagination?.total || 0,
+        filters: {
+          family: selectedFamily,
+          baseline: selectedBaseline,
+          limit: 2000
+        }
+      };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   }) as { data: ControlsResponse | undefined, isLoading: boolean, error: Error | null, refetch: () => void };
 
+  // Fetch control stats
+  const { data: statsData } = useQuery({
+    queryKey: ['/api/controls/stats'],
+    queryFn: async () => {
+      const url = buildApiUrl('/api/controls/stats');
+      const token = localStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      
+      const response = await fetch(url, {
+        headers,
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch stats: ${response.status}`);
+      }
+      
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Extract controls from response
   const controls = controlsResponse?.controls || [];
 
-  // Update control status mutation
-  const updateControlMutation = useMutation({
-    mutationFn: async ({ controlId, updates }: { controlId: string, updates: Partial<Control> }) => {
-      const response = await apiRequest('PUT', `/api/controls/${controlId}`, updates);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/controls', 'v2'] });
-      toast({
-        title: "Success",
-        description: "Control updated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: `Failed to update control: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
 
-  // Calculate family statistics from real data
+
+  // Use stats from API or calculate from controls
   const familyStats = useMemo(() => {
-    const stats: Record<string, { total: number; implemented: number }> = {};
+    if (statsData?.byFamily) {
+      // Convert API stats to expected format
+      return Object.entries(statsData.byFamily).reduce((acc, [family, total]) => {
+        acc[family] = { total: total as number, implemented: 0 };
+        return acc;
+      }, {} as Record<string, { total: number; implemented: number }>);
+    }
     
+    // Fallback: calculate from controls
+    const stats: Record<string, { total: number; implemented: number }> = {};
     controls.forEach(control => {
       if (!stats[control.family]) {
         stats[control.family] = { total: 0, implemented: 0 };
@@ -100,7 +136,7 @@ export default function Controls() {
     });
     
     return stats;
-  }, [controls]);
+  }, [controls, statsData]);
 
   // Get unique families and baselines for filtering
   const uniqueFamilies = useMemo(() => {
@@ -118,13 +154,11 @@ export default function Controls() {
     id: control.id,
     family: control.family,
     title: control.title,
-    baseline: (Array.isArray(control.baseline) ? control.baseline[0] : control.baseline) as "Low" | "Moderate" | "High",
-    implementationStatus: control.status === 'implemented' ? 'compliant' as const :
-                         control.status === 'partially_implemented' ? 'in-progress' as const :
-                         control.status === 'not_implemented' ? 'not-assessed' as const :
-                         'non-compliant' as const,
+    baseline: (Array.isArray(control.baseline) && control.baseline.length > 0 ? control.baseline[0] : "Low") as "Low" | "Moderate" | "High",
+    implementationStatus: 'not-assessed' as const, // Controls library doesn't have status
+    ruleType: 'stig' as const, // NIST controls are mapped to STIG
     lastAssessed: control.createdAt ? new Date(control.createdAt).toISOString().split('T')[0] : undefined,
-    assignedTo: "System Admin" // TODO: Add assignedTo field to Control schema
+    assignedTo: undefined
   }));
 
   const handleViewControl = (controlId: string) => {
@@ -132,16 +166,7 @@ export default function Controls() {
     // TODO: Navigate to control details page or open modal
   };
 
-  const handleUpdateControlStatus = (controlId: string, status: string) => {
-    const mappedStatus = status === 'compliant' ? 'implemented' :
-                        status === 'in-progress' ? 'partially_implemented' :
-                        status === 'non-compliant' ? 'not_implemented' : 'not_implemented';
-    
-    updateControlMutation.mutate({
-      controlId,
-      updates: { status: mappedStatus }
-    });
-  };
+
 
   const handleImportSTIG = async () => {
     console.log('Importing STIG controls');

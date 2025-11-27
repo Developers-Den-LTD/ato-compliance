@@ -9,6 +9,7 @@ router.use(authenticate);
 
 // Control library endpoints
 router.get('/controls', (req, res) => controlController.getControls(req, res));
+router.get('/controls/stats', (req, res) => controlController.getControlStats(req, res));
 router.get('/controls/families', (req, res) => controlController.getControlFamilies(req, res));
 router.get('/controls/:id', (req, res) => controlController.getControlById(req, res));
 

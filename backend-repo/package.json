@@ -14,7 +14,8 @@
     "db:start": "docker-compose up -d",
     "db:stop": "docker-compose down",
     "create-admin": "tsx scripts/create-admin-user.ts",
-    "create-admin": "tsx scripts/create-admin-user.ts"
+    "import-controls": "tsx scripts/import-nist-controls.ts",
+    "check-controls": "tsx scripts/check-controls-status.ts"
   },
   "keywords": ["ato", "compliance", "nist", "stig"],
   "author": "",
