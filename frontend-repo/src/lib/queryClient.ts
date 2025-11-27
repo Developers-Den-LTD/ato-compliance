@@ -1,8 +1,23 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { API_URL } from "@/config/api";
 
 // Get auth token from localStorage
 function getAuthToken(): string | null {
   return localStorage.getItem('accessToken');
+}
+
+// Helper to build full URL
+function buildFullUrl(url: string): string {
+  // If URL is already absolute, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  // If URL starts with /api, prepend the base URL
+  if (url.startsWith('/api')) {
+    return `${API_URL}${url.substring(4)}`; // Remove /api prefix since API_URL already includes it
+  }
+  // Otherwise prepend API_URL
+  return `${API_URL}${url}`;
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -55,7 +70,9 @@ export async function apiRequest(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, {
+  const fullUrl = buildFullUrl(url);
+
+  const res = await fetch(fullUrl, {
     method,
     headers,
     body: requestData ? JSON.stringify(requestData) : undefined,
@@ -87,7 +104,10 @@ export const getQueryFn: <T>(options: {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    const fullUrl = buildFullUrl(url);
+
+    const res = await fetch(fullUrl, {
       headers,
       credentials: "include",
     });
@@ -112,7 +132,9 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  return fetch(url, {
+  const fullUrl = buildFullUrl(url);
+
+  return fetch(fullUrl, {
     ...options,
     headers,
     credentials: 'include'

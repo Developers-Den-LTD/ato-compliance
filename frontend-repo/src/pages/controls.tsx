@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Import, Download, Shield, AlertCircle, Upload } from "lucide-react";
 import type { Control } from "@shared/schema";
+import { buildApiUrl } from "@/config/api";
 
 interface ControlsResponse {
   controls: Control[];
@@ -37,7 +38,7 @@ export default function Controls() {
       if (selectedBaseline) searchParams.append('baseline', selectedBaseline);
       searchParams.append('limit', '2000');
       
-      const url = `/api/controls?${searchParams.toString()}`;
+      const url = buildApiUrl(`/api/controls?${searchParams.toString()}`);
       
       const token = localStorage.getItem('accessToken');
       const headers: Record<string, string> = {
@@ -146,7 +147,7 @@ export default function Controls() {
     console.log('Importing STIG controls');
     try {
       // Check current STIG status
-      const response = await fetch('/api/assessment/rule-types', {
+      const response = await fetch(buildApiUrl('/api/assessment/rule-types'), {
         headers: {
           'Authorization': 'Bearer dev-token-123'
         },
