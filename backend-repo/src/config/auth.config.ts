@@ -2,7 +2,7 @@ export const authConfig = {
   jwt: {
     accessTokenSecret: process.env.JWT_ACCESS_SECRET || 'your-access-token-secret-change-in-production',
     refreshTokenSecret: process.env.JWT_REFRESH_SECRET || 'your-refresh-token-secret-change-in-production',
-    accessTokenExpiry: '15m', // 15 minutes
+    accessTokenExpiry: '1440m', // 1 day
     refreshTokenExpiry: '7d', // 7 days
   },
   bcrypt: {

@@ -1,3 +1,8 @@
+import * as dotenv from 'dotenv';
+
+// Load environment variables first
+dotenv.config();
+
 import { db } from '../src/db';
 import { users } from '../src/schema';
 import bcrypt from 'bcrypt';

@@ -18,7 +18,4 @@ const getApiUrl = (): string => {
 export const API_BASE_URL = getApiUrl();
 export const API_URL = `${API_BASE_URL}/api`;
 
-// Frontend URL for reference
-export const FRONTEND_URL = import.meta.env.DEV 
-  ? 'http://localhost:5173'
-  : 'https://ato-compliance-frontend-kd6j.vercel.app';
+

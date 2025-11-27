@@ -1,7 +1,17 @@
 import { defineConfig } from 'drizzle-kit';
 import * as dotenv from 'dotenv';
+import * as path from 'path';
 
-dotenv.config();
+// Load environment variables
+const envPath = path.resolve(process.cwd(), '.env');
+dotenv.config({ path: envPath });
+
+if (!process.env.DATABASE_URL) {
+  console.warn('⚠️  DATABASE_URL not found in environment, using fallback');
+}
+else{
+  console.log("DB URL FOUND", process.env.DATABASE_URL)
+}
 
 export default defineConfig({
   schema: './src/schema.ts',

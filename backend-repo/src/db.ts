@@ -1,25 +1,42 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
-import * as dotenv from 'dotenv';
 
-dotenv.config();
+// Lazy initialization to ensure env vars are loaded
+let client: ReturnType<typeof postgres> | null = null;
+let dbInstance: ReturnType<typeof drizzle> | null = null;
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://ato_user:ato_password@localhost:5432/ato_compliance';
+function getClient() {
+  if (!client) {
+    const connectionString = process.env.DATABASE_URL;
+    
+    if (!connectionString) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
+    
+    client = postgres(connectionString, {
+      max: 10,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
+  }
+  return client;
+}
 
-// Create postgres client
-const client = postgres(connectionString, {
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 10,
+// Create drizzle instance with lazy initialization
+export const db = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(target, prop) {
+    if (!dbInstance) {
+      dbInstance = drizzle(getClient(), { schema });
+    }
+    return (dbInstance as any)[prop];
+  }
 });
-
-// Create drizzle instance
-export const db = drizzle(client, { schema });
 
 // Test connection
 export async function testConnection() {
   try {
+    const client = getClient();
     await client`SELECT 1`;
     console.log('✅ Database connection successful');
     return true;

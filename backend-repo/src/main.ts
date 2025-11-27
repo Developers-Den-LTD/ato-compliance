@@ -1,25 +1,29 @@
-//import { APP_NAME } from '@ato-compliance/shared';
+import * as dotenv from 'dotenv';
+
+// Load environment variables FIRST before any other imports
+// dotenv.config() looks for .env in process.cwd() by default
+const result = dotenv.config();
+
+console.log('CWD:', process.cwd());
+console.log('Dotenv result:', result.error ? `Error: ${result.error}` : `Loaded ${Object.keys(result.parsed || {}).length} vars`);
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import * as dotenv from 'dotenv';
-import path from 'path';
-//import { APP_NAME, APP_VERSION } from './schema';
 import { testConnection } from './db';
 import routes from './routes';
 
-
 const APP_NAME = 'Ato Compliance';
 const APP_VERSION = '1.0.0';
-dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 
-// Allowed origins for CORS (local + production)
+
+
+// Allowed origins for CORS
 const allowedOrigins = [
-  'http://localhost:5173',                                      // local dev
-  'https://ato-compliance-frontend-kd6j.vercel.app',          // production frontend
-  process.env.FRONTEND_URL || ''                               // custom frontend URL
+  process.env.FRONTEND_URL || ''  // Allow custom override if needed
 ].filter(Boolean); // Remove empty strings
 
 const app = express();
