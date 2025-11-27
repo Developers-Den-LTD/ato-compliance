@@ -200,18 +200,20 @@ export class STIGService {
 
   // Get rules for a specific STIG profile
   async getSTIGRules(stigId: string, limit?: number, offset?: number) {
-    let query = db
+    const baseQuery = db
       .select()
       .from(stigRules)
       .where(eq(stigRules.stigId, stigId))
       .orderBy(stigRules.severity, stigRules.id);
 
-    if (limit) {
-      query = query.limit(limit);
-    }
-    if (offset) {
-      query = query.offset(offset);
-    }
+    // Apply limit and offset if provided
+    const query = limit !== undefined && offset !== undefined
+      ? baseQuery.limit(limit).offset(offset)
+      : limit !== undefined
+      ? baseQuery.limit(limit)
+      : offset !== undefined
+      ? baseQuery.offset(offset)
+      : baseQuery;
 
     const rules = await query;
     return rules;
