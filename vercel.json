@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "cd backend-repo && npm install && npm run build",
+  "installCommand": "cd backend-repo && npm install",
+  "builds": [
+    {
+      "src": "backend-repo/dist/main.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "backend-repo/dist/main.js"
+    }
+  ]
+}

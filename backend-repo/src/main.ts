@@ -107,8 +107,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   });
 }
 
-// Export for Vercel serverless (default export)
-export default app;
-
-// Also export as named export for testing
-export { app };
+// Export for Vercel serverless
+// Using module.exports for CommonJS compatibility
+module.exports = app;
+module.exports.app = app; // Also export as named export for testing
