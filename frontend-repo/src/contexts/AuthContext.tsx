@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import  { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { API_URL } from '@/config/api';
 
 // ============================================================================
 // AUTHENTICATION TYPES
@@ -89,16 +90,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // ============================================================================
 
   const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
     };
 
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
 
-    const response = await fetch(`/api/auth${endpoint}`, {
+    // Add any additional headers from options
+    if (options.headers) {
+      Object.entries(options.headers).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          headers[key] = value;
+        }
+      });
+    }
+
+    console.log('🌐 Making auth request to:', `${API_URL}/auth${endpoint}`);
+    console.log('🔑 Using API_URL:', API_URL);
+
+    const response = await fetch(`${API_URL}/auth${endpoint}`, {
       ...options,
       headers,
       credentials: 'include',
@@ -125,12 +137,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return {
         success: true,
         user: response,
-        session: { 
+        session: accessToken ? { 
           sessionId: 'dev-session-id',
           sessionToken: accessToken, 
           token: accessToken,
           expiresAt: new Date(Date.now() + 86400 * 1000).toISOString()
-        }
+        } : null
       };
     },
     enabled: true, // Always try to fetch - backend will return admin user if auth disabled
@@ -180,7 +192,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           user: data.user,
           session: { 
             sessionId: 'dev-session-id',
-            sessionToken: token, 
+            sessionToken: token,
             token: token,
             expiresAt: new Date(Date.now() + 86400 * 1000).toISOString()
           }
@@ -212,7 +224,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         queryClient.setQueryData(['auth', 'me'], {
           success: true,
           user: data.user,
-          session: { sessionToken: data.accessToken, token: data.accessToken }
+          session: { 
+            sessionId: 'dev-session-id',
+            sessionToken: data.accessToken,
+            token: data.accessToken,
+            expiresAt: new Date(Date.now() + 86400 * 1000).toISOString()
+          }
         });
       }
     },
