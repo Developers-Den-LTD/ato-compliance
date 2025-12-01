@@ -100,12 +100,15 @@ testConnection().then((connected) => {
   }
 });
 
-// Only start server if not in test environment
-if (process.env.NODE_ENV !== 'test') {
+// Only start server if not in test environment or Vercel
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`🚀 ${APP_NAME} Backend running on http://localhost:${PORT}`);
   });
 }
 
-// Export app for testing
+// Export for Vercel serverless (default export)
+export default app;
+
+// Also export as named export for testing
 export { app };
