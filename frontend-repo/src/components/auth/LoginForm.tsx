@@ -72,7 +72,7 @@ export function LoginForm({ onSuccess, onMFARequired }: LoginFormProps) {
           Enter your credentials to access the ATO Compliance Agent
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      {/*<CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <Alert variant="destructive">
@@ -145,7 +145,7 @@ export function LoginForm({ onSuccess, onMFARequired }: LoginFormProps) {
           <p>ATO Compliance Agent</p>
           <p className="mt-1">Enterprise Security Platform</p>
         </div>
-      </CardContent>
+      </CardContent>*/}
     </Card>
   );
 }
