@@ -29,7 +29,8 @@ const frontendUrls = process.env.FRONTEND_URL
 
 const allowedOrigins = [
   ...frontendUrls,
-  'http://localhost:5173',  // Vite dev server
+  'http://localhost:5173',
+  'https://ato-compliance-frontend-kd6j.vercel.app',  // Vite dev server
   'http://localhost:3000',  // In case frontend is served from same port
   'http://localhost:5174',  // Alternative Vite port
 ].filter(Boolean); // Remove empty strings
