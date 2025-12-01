@@ -63,7 +63,11 @@ class AuthApi {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const loginUrl = `${API_URL}/auth/login`;
+    console.log('🚀 Making login request to:', loginUrl);
+    console.log('🔑 API_URL value:', API_URL);
+    
+    const response = await fetch(loginUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
