@@ -1,44 +1,36 @@
-import * as dotenv from 'dotenv';
-
-// Load environment variables FIRST before any other imports
-// dotenv.config() looks for .env in process.cwd() by default
-const result = dotenv.config();
-
-console.log('CWD:', process.cwd());
-console.log('Dotenv result:', result.error ? `Error: ${result.error}` : `Loaded ${Object.keys(result.parsed || {}).length} vars`);
-console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
-
+// /import { APP_NAME } from '@ato-compliance/shared';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import * as dotenv from 'dotenv';
+import path from 'path';
+//import { APP_NAME, APP_VERSION } from './schema';
 import { testConnection } from './db';
 import routes from './routes';
 
+
 const APP_NAME = 'Ato Compliance';
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.0';
+dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 
-
-
-
+// Allowed origins for CORS (local + production)
 const allowedOrigins = [
-  'http://localhost:5173',
+  'http://localhost:5173',                                      // local dev
   'https://ato-compliance-frontend-kd6j.vercel.app',          // production frontend
-].filter(Boolean);
-console.log('🌐 CORS allowed origins:', allowedOrigins);
-
-
+  process.env.FRONTEND_URL || ''                               // custom frontend URL
+].filter(Boolean); // Remove empty strings
 
 const app = express();
 
+// CORS handler
 app.use(
   cors({
     origin: allowedOrigins,
     credentials: true,
   })
 );
-
 
 app.use(express.json());
 app.use(cookieParser());
@@ -60,7 +52,7 @@ app.use('/api', routes);
 // Legacy endpoint (keep for backward compatibility)
 app.get('/api/message', (_req, res) => {
   res.json({ 
-    message: 'Hello from the backend! Backend is running.',
+    message: 'Hello from the backend!',
     timestamp: new Date().toISOString(),
     success: true
   });
@@ -75,14 +67,6 @@ testConnection().then((connected) => {
   }
 });
 
-// Only start server if not in test environment or Vercel
-if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`🚀 ${APP_NAME} Backend running on http://localhost:${PORT}`);
-  });
-}
-
-// Export for Vercel serverless
-// Using module.exports for CommonJS compatibility
-module.exports = app;
-module.exports.app = app; // Also export as named export for testing
+app.listen(PORT, () => {
+  console.log(`🚀 ${APP_NAME} Backend running on http://localhost:${PORT}`);
+});
