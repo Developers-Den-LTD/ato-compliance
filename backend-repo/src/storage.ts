@@ -7,7 +7,7 @@ import {
   templates, templateVersions, templateMappings, generationCheckpoints,
   semanticChunks, controlEmbeddings, documentControlMappings
 } from './schema';
-import { eq, and, desc, asc, inArray, lt } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray, lt, sql } from 'drizzle-orm';
 import type { 
   User, InsertUser, System, InsertSystem, Control, InsertControl,
   StigRule, InsertStigRule, Cci, InsertCci, Artifact, InsertArtifact,
@@ -60,8 +60,8 @@ export class DatabaseStorage {
   }
 
   async deleteSystem(id: string): Promise<boolean> {
-    const result = await db.delete(systems).where(eq(systems.id, id));
-    return (result.rowCount ?? 0) > 0;
+    const result = await db.delete(systems).where(eq(systems.id, id)).returning();
+    return result.length > 0;
   }
 
   // Control management
@@ -126,8 +126,8 @@ export class DatabaseStorage {
   }
 
   async deleteStigRule(id: string): Promise<boolean> {
-    const result = await db.delete(stigRules).where(eq(stigRules.id, id));
-    return (result.rowCount ?? 0) > 0;
+    const result = await db.delete(stigRules).where(eq(stigRules.id, id)).returning();
+    return result.length > 0;
   }
 
   async getStigRulesByType(ruleType: 'stig' | 'jsig'): Promise<StigRule[]> {
@@ -170,8 +170,8 @@ export class DatabaseStorage {
   }
 
   async deleteArtifact(id: string): Promise<boolean> {
-    const result = await db.delete(artifacts).where(eq(artifacts.id, id));
-    return (result.rowCount ?? 0) > 0;
+    const result = await db.delete(artifacts).where(eq(artifacts.id, id)).returning();
+    return result.length > 0;
   }
 
   // Document management
@@ -199,8 +199,8 @@ export class DatabaseStorage {
   }
 
   async deleteDocument(id: string): Promise<boolean> {
-    const result = await db.delete(documents).where(eq(documents.id, id));
-    return (result.rowCount ?? 0) > 0;
+    const result = await db.delete(documents).where(eq(documents.id, id)).returning();
+    return result.length > 0;
   }
 
   // Finding management
@@ -272,6 +272,184 @@ export class DatabaseStorage {
   async createStigRuleControl(mapping: InsertStigRuleControl): Promise<StigRuleControl> {
     const result = await db.insert(stigRuleControls).values(mapping).returning();
     return result[0];
+  }
+
+  // System Controls management
+  async getSystemControls(systemId: string): Promise<any[]> {
+    return await db.select().from(systemControls).where(eq(systemControls.systemId, systemId));
+  }
+
+  async getSystemControl(systemId: string, controlId: string): Promise<any | undefined> {
+    const result = await db.select().from(systemControls).where(
+      and(eq(systemControls.systemId, systemId), eq(systemControls.controlId, controlId))
+    );
+    return result[0];
+  }
+
+  async updateSystemControl(systemId: string, controlId: string, updates: any): Promise<any | undefined> {
+    const result = await db.update(systemControls)
+      .set(updates)
+      .where(and(eq(systemControls.systemId, systemId), eq(systemControls.controlId, controlId)))
+      .returning();
+    return result[0];
+  }
+
+  async getControlsBySystemId(systemId: string): Promise<Control[]> {
+    const systemControlsList = await this.getSystemControls(systemId);
+    const controlIds = systemControlsList.map((sc: any) => sc.controlId);
+    if (controlIds.length === 0) return [];
+    return await db.select().from(controls).where(sql`${controls.id} = ANY(${controlIds})`);
+  }
+
+  // Evidence management
+  async createEvidence(evidenceData: InsertEvidence): Promise<Evidence> {
+    const result = await db.insert(evidence).values(evidenceData).returning();
+    return result[0];
+  }
+
+  async getEvidenceByControl(controlId: string): Promise<Evidence[]> {
+    return await db.select().from(evidence).where(eq(evidence.controlId, controlId));
+  }
+
+  // Finding management
+  async createFinding(findingData: InsertFinding): Promise<Finding> {
+    const result = await db.insert(findings).values(findingData).returning();
+    return result[0];
+  }
+
+  // Generation Job management
+  async createGenerationJob(jobData: InsertGenerationJob): Promise<GenerationJob> {
+    const result = await db.insert(generationJobs).values(jobData).returning();
+    return result[0];
+  }
+
+  async updateGenerationJob(jobId: string, updates: Partial<InsertGenerationJob>): Promise<GenerationJob | undefined> {
+    const result = await db.update(generationJobs).set(updates).where(eq(generationJobs.id, jobId)).returning();
+    return result[0];
+  }
+
+  // Template management
+  async getTemplatesByType(type: string): Promise<Template[]> {
+    return await db.select().from(templates).where(eq(templates.type, type));
+  }
+
+  async createTemplate(templateData: InsertTemplate): Promise<Template> {
+    const result = await db.insert(templates).values(templateData).returning();
+    return result[0];
+  }
+
+  async updateTemplate(templateId: string, updates: Partial<InsertTemplate>): Promise<Template | undefined> {
+    const result = await db.update(templates).set(updates).where(eq(templates.id, templateId)).returning();
+    return result[0];
+  }
+
+  async deleteTemplate(templateId: string): Promise<boolean> {
+    const result = await db.delete(templates).where(eq(templates.id, templateId));
+    return result.length > 0;
+  }
+
+  async getTemplatesByOrganization(organizationId: string): Promise<Template[]> {
+    return await db.select().from(templates).where(eq(templates.organizationId, organizationId));
+  }
+
+  async getDefaultTemplateForType(documentType: string, systemId?: string): Promise<Template | undefined> {
+    const result = await db.select().from(templates)
+      .where(and(eq(templates.type, documentType), eq(templates.status, 'active')))
+      .limit(1);
+    return result[0];
+  }
+
+  // Template Version management
+  async createTemplateVersion(versionData: InsertTemplateVersion): Promise<TemplateVersion> {
+    const result = await db.insert(templateVersions).values(versionData).returning();
+    return result[0];
+  }
+
+  async getTemplateVersion(versionId: string): Promise<TemplateVersion | undefined> {
+    const result = await db.select().from(templateVersions).where(eq(templateVersions.id, versionId));
+    return result[0];
+  }
+
+  async getActiveTemplateVersion(templateId: string): Promise<TemplateVersion | undefined> {
+    const template = await this.getTemplate(templateId);
+    if (!template?.activeVersion) return undefined;
+    return await this.getTemplateVersion(template.activeVersion);
+  }
+
+  async activateTemplateVersion(templateId: string, versionId: string): Promise<boolean> {
+    const result = await db.update(templates)
+      .set({ activeVersion: versionId })
+      .where(eq(templates.id, templateId))
+      .returning();
+    return result.length > 0;
+  }
+
+  async deleteTemplateVersion(versionId: string): Promise<boolean> {
+    const result = await db.delete(templateVersions).where(eq(templateVersions.id, versionId));
+    return result.length > 0;
+  }
+
+  // Template Mapping management
+  async createTemplateMapping(mappingData: InsertTemplateMapping): Promise<TemplateMapping> {
+    const result = await db.insert(templateMappings).values(mappingData).returning();
+    return result[0];
+  }
+
+  async deleteTemplateMapping(mappingId: string): Promise<boolean> {
+    const result = await db.delete(templateMappings).where(eq(templateMappings.id, mappingId));
+    return result.length > 0;
+  }
+
+  // Provider Settings management
+  async updateProviderSettings(settingsId: string, updates: Partial<InsertProviderSettings>): Promise<ProviderSettings | undefined> {
+    const result = await db.update(providerSettings).set(updates).where(eq(providerSettings.id, settingsId)).returning();
+    return result[0];
+  }
+
+  async getProviderSettingsByProvider(provider: string): Promise<ProviderSettings | undefined> {
+    const result = await db.select().from(providerSettings).where(eq(providerSettings.provider, provider));
+    return result[0];
+  }
+
+  // STIG Rule Control Mappings
+  async getSTIGRuleControlMappings(ruleId: string): Promise<StigRuleControl[]> {
+    return await db.select().from(stigRuleControls).where(eq(stigRuleControls.stigRuleId, ruleId));
+  }
+
+  async getStigRulesForControl(controlId: string): Promise<StigRule[]> {
+    const mappings = await db.select().from(stigRuleControls).where(eq(stigRuleControls.controlId, controlId));
+    const ruleIds = mappings.map(m => m.stigRuleId);
+    if (ruleIds.length === 0) return [];
+    return await db.select().from(stigRules).where(sql`${stigRules.id} = ANY(${ruleIds})`);
+  }
+
+  // Artifact content management
+  async getArtifactContent(artifactId: string): Promise<string | undefined> {
+    const artifact = await this.getArtifact(artifactId);
+    if (!artifact?.metadata) return undefined;
+    return (artifact.metadata as any)?.extractedText || undefined;
+  }
+
+  // Semantic search placeholders (would need vector extension)
+  async findSimilarChunks(embedding: number[], limit: number, threshold?: number): Promise<any[]> {
+    // Placeholder - would need pgvector extension
+    return [];
+  }
+
+  async findSimilarControls(embedding: number[], limit: number, threshold?: number): Promise<any[]> {
+    // Placeholder - would need pgvector extension
+    return [];
+  }
+
+  async getControlEmbedding(controlId: string): Promise<any | undefined> {
+    // Placeholder - would need embeddings table
+    return undefined;
+  }
+
+  // Checkpoint management for resilient generation
+  async getCheckpoint(jobId: string, checkpointKey: string): Promise<any | undefined> {
+    // Placeholder - would need checkpoints table
+    return undefined;
   }
 }
 

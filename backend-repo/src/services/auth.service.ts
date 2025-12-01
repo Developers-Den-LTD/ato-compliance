@@ -104,7 +104,7 @@ export class AuthenticationService {
   /**
    * Refresh access token
    */
-  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string }> {
+  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; user: { id: string; username: string; role: string } }> {
     try {
       const payload = jwt.verify(refreshToken, this.refreshTokenSecret) as { userId: string; type: string; username?: string };
       
@@ -125,7 +125,14 @@ export class AuthenticationService {
 
       const accessToken = this.generateAccessToken(user.id, user.username);
       
-      return { accessToken };
+      return { 
+        accessToken,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role
+        }
+      };
     } catch (error) {
       throw new Error('Invalid refresh token');
     }

@@ -2,7 +2,7 @@
 // This bypasses the InsertProviderSettings type to avoid foreign key constraint issues
 
 import { db } from '../db';
-import { providerSettings } from './schema';
+import { providerSettings } from '../schema';
 import { eq } from 'drizzle-orm';
 
 interface SafeProviderUpdate {

@@ -29,6 +29,7 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
     "@types/multer": "^2.0.0",
     "@xmldom/xmldom": "^0.8.11",
     "bcrypt": "^6.0.0",
@@ -42,6 +43,7 @@
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.11.0",
     "multer": "^2.0.2",
+    "openai": "^6.9.1",
     "pizzip": "^3.2.0",
     "postgres": "^3.4.7",
     "puppeteer": "^24.31.0",

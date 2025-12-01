@@ -1,6 +1,6 @@
 // Test utilities and helpers for server-side tests
 import { db } from '../../db';
-import { users, systems, controls, documents, assessments } from './schema';
+import { users, systems, controls, documents, assessments } from '../../schema';
 import { eq } from 'drizzle-orm';
 
 export class TestDatabase {

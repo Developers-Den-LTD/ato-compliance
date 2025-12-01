@@ -43,9 +43,11 @@ export type RelationshipTypeType = z.infer<typeof RelationshipType>;
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
+  email: text("email").unique(),
   passwordHash: text("password_hash").notNull(), // Store bcrypt/argon2 hash
   role: text("role").notNull().default("user"), // "admin" or "user"
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // IT Systems
@@ -57,6 +59,7 @@ export const systems = pgTable("systems", {
   impactLevel: text("impact_level").notNull(), // "High", "Moderate", "Low"
   complianceStatus: text("compliance_status").notNull().default("not-assessed"), // "compliant", "non-compliant", "in-progress", "not-assessed"
   owner: text("owner"),
+  systemOwner: text("system_owner"), // System owner name
   createdBy: varchar("created_by"), // User ID who created the system
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
@@ -80,6 +83,7 @@ export const controls = pgTable("controls", {
   enhancement: text("enhancement"), // null, "(1)", "(2)"
   parentControlId: varchar("parent_control_id", { length: 50 }), // null or "AC-2"
   supplementalGuidance: text("supplemental_guidance"),
+  requirements: text("requirements"), // Control requirements text
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
   frameworkIdx: index("idx_controls_framework").on(table.framework),
@@ -182,10 +186,12 @@ export const evidence = pgTable("evidence", {
   artifactId: varchar("artifact_id").references(() => artifacts.id, { onDelete: "set null" }),
   findingId: varchar("finding_id").references(() => findings.id, { onDelete: "set null" }),
   type: text("type").notNull(), // "document", "scan_result", "configuration", "policy"
+  title: text("title"),
   description: text("description"),
   implementation: text("implementation"), // How the control is implemented
   assessorNotes: text("assessor_notes"),
   status: text("status").notNull(), // "satisfies", "partially_satisfies", "does_not_satisfy", "not_applicable"
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
@@ -243,6 +249,7 @@ export const documents = pgTable("documents", {
   status: text("status").notNull(), // "draft", "review", "approved", "final"
   generatedBy: text("generated_by"), // "manual", "ai_generated"
   filePath: text("file_path"), // Path to exported file
+  metadata: jsonb("metadata"), // Additional metadata
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
@@ -277,6 +284,7 @@ export const assessments = pgTable("assessments", {
   assessmentId: text("assessment_id").notNull().unique(), // External assessment ID from engine
   title: text("title"),
   assessor: text("assessor"),
+  assessorName: text("assessor_name"), // Name of the assessor
   assessmentDate: timestamp("assessment_date").default(sql`CURRENT_TIMESTAMP`),
   nextAssessmentDate: date("next_assessment_date"),
   findingsCount: integer("findings_count").default(0),
@@ -321,6 +329,7 @@ export const systemControls = pgTable("system_controls", {
   lastUpdated: timestamp("last_updated").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedBy: varchar("updated_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  source: text("source"), // 'manual', 'stig', 'baseline', etc.
 }, (table) => ({
   systemIdx: index("idx_system_controls_system").on(table.systemId),
   controlIdx: index("idx_system_controls_control").on(table.controlId),
@@ -361,6 +370,7 @@ export const templates = pgTable("templates", {
   filePath: text("file_path"), // Path to uploaded template file
   fileSize: integer("file_size"), // File size in bytes
   mimeType: text("mime_type"), // MIME type of uploaded file
+  activeVersion: varchar("active_version"), // Reference to active template version
 });
 
 // Template versions table - tracks version history

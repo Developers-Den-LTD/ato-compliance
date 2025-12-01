@@ -9,7 +9,7 @@ export class UserController {
       const limit = parseInt(req.query.limit as string) || 10;
       const search = req.query.search as string || '';
 
-      const result = await userService.getUsers(page, limit, search);
+      const result = await userService.getAllUsers(limit, (page - 1) * limit);
 
       return res.status(200).json(result);
     } catch (error) {
