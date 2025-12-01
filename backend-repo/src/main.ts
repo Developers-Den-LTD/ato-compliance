@@ -22,16 +22,45 @@ const PORT = process.env.PORT || 3000;
 
 
 // Allowed origins for CORS
+// Support comma-separated list of origins in FRONTEND_URL
+const frontendUrls = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : [];
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL || ''  // Allow custom override if needed
+  ...frontendUrls,
+  'http://localhost:5173',  // Vite dev server
+  'http://localhost:3000',  // In case frontend is served from same port
+  'http://localhost:5174',  // Alternative Vite port
 ].filter(Boolean); // Remove empty strings
+
+console.log('🌐 CORS Configuration:');
+console.log('   FRONTEND_URL env var:', process.env.FRONTEND_URL);
+console.log('   Allowed origins:', allowedOrigins);
 
 const app = express();
 
-// CORS handler
+// CORS handler with detailed logging
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      console.log('📨 CORS request from origin:', origin);
+      
+      // Allow requests with no origin (like mobile apps, Postman, curl)
+      if (!origin) {
+        console.log('   ✅ Allowed (no origin header)');
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.includes(origin)) {
+        console.log('   ✅ Allowed');
+        callback(null, true);
+      } else {
+        console.warn('   ❌ BLOCKED - Origin not in allowed list');
+        console.warn('   Add this to FRONTEND_URL:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
