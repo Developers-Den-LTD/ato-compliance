@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -78,14 +79,7 @@ export function AssessmentResultsDetail({ systemId, assessmentId, onClose }: Ass
         ? `/api/assessment/systems/${systemId}/results?assessmentId=${assessmentId}`
         : `/api/assessment/systems/${systemId}/results`;
       
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': 'Bearer dev-token-123'
-        }
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch assessment results');
-      }
+      const response = await apiRequest('GET', url);
       return response.json();
     },
     enabled: !!systemId,

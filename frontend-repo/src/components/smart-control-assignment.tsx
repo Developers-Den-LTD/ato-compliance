@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { 
   Brain, 
   Shield, 
@@ -57,8 +57,7 @@ export function SmartControlAssignment({ systemId, onClose }: SmartControlAssign
   const { data: options, isLoading, error } = useQuery({
     queryKey: ['/api/control-assignment/options', systemId],
     queryFn: async () => {
-      const response = await fetch(`/api/control-assignment/options/${systemId}`);
-      if (!response.ok) throw new Error('Failed to fetch assignment options');
+      const response = await apiRequest('GET', `/api/control-assignment/options/${systemId}`);
       const data = await response.json();
       return data.data as AssignmentOptions;
     },
@@ -72,20 +71,14 @@ export function SmartControlAssignment({ systemId, onClose }: SmartControlAssign
       templateId?: string;
       controlIds?: string[];
     }) => {
-      const response = await fetch('/api/control-assignment/assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemId,
-          assignmentType,
-          templateId,
-          controlIds,
-          impactLevel: options?.impactLevel,
-          category: options?.category
-        })
+      const response = await apiRequest('POST', '/api/control-assignment/assign', {
+        systemId,
+        assignmentType,
+        templateId,
+        controlIds,
+        impactLevel: options?.impactLevel,
+        category: options?.category
       });
-      
-      if (!response.ok) throw new Error('Failed to assign controls');
       return response.json();
     },
     onSuccess: (data) => {

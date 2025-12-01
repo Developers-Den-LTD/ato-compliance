@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -276,9 +277,7 @@ export function AssessmentReportGenerator({ systemId, assessmentId }: Assessment
       };
       
       // Step 1: Start generation job using correct endpoint
-      const startResponse = await fetch('/api/generation/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const startResponse = await apiRequest('POST', '/api/generation/start', {
         body: JSON.stringify({
           systemId,
           documentTypes: getDocumentTypes(selectedTemplate || 'executive_summary'),
@@ -312,14 +311,15 @@ export function AssessmentReportGenerator({ systemId, assessmentId }: Assessment
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        const statusResponse = await fetch(`/api/generation/status/${jobId}`);
+        const statusResponse = await apiRequest('GET', `/api/generation/status/${jobId}`);
         if (!statusResponse.ok) throw new Error('Failed to get generation status');
         const statusResult = await statusResponse.json();
         
         if (statusResult.status.status === 'completed') {
           // Step 3: Get final result
-          const resultResponse = await fetch(`/api/generation/result/${jobId}`);
-           const finalResult = await resultResponse.json();
+          const resultResponse = await apiRequest('GET', `/api/generation/result/${jobId}`);
+          if (!resultResponse.ok) throw new Error('Failed to get generation result');
+          const finalResult = await resultResponse.json();
           
           // Return result with download info
           return {
@@ -430,7 +430,7 @@ export function AssessmentReportGenerator({ systemId, assessmentId }: Assessment
   // Download generated report from generation service result
   const handleDownloadGenerated = async (jobId: string, title: string) => {
     try {
-      const response = await fetch(`/api/generation/result/${jobId}`);
+      const response = await apiRequest('GET', `/api/generation/result/${jobId}`);
       if (!response.ok) throw new Error('Failed to get generation result');
       const result = await response.json();
       

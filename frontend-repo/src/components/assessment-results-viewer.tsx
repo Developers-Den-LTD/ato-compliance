@@ -148,21 +148,14 @@ export function AssessmentResultsViewer({ systemId, className }: AssessmentResul
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useQuery({
     queryKey: ['/api/analytics/systems', systemId, 'compliance'],
     queryFn: async () => {
-      const response = await fetch(`/api/analytics/systems/${systemId}/compliance`, {
-        headers: {
-          'Authorization': 'Bearer dev-token-123'
-        }
-      });
-      if (!response.ok) {
-        if (response.status === 404) {
+      try {
+        const response = await apiRequest('GET', `/api/analytics/systems/${systemId}/compliance`);
+        return response.json();
+      } catch (error: any) {
+        if (error.message?.includes('404')) {
           // Try alternative endpoint if analytics doesn't exist
-          const altResponse = await fetch(`/api/assessment/systems/${systemId}/summary`, {
-            headers: {
-              'Authorization': 'Bearer dev-token-123'
-            }
-          });
-          if (altResponse.ok) {
-            const data = await altResponse.json();
+          const altResponse = await apiRequest('GET', `/api/assessment/systems/${systemId}/summary`);
+          const data = await altResponse.json();
             // Transform the data to match expected format
             return {
               systemId,
@@ -184,11 +177,9 @@ export function AssessmentResultsViewer({ systemId, className }: AssessmentResul
               lastAssessment: data.assessment?.lastRun,
               lastUpdated: new Date().toISOString()
             } as AssessmentSummary;
-          }
         }
-        throw new Error('Failed to fetch assessment summary');
+        throw error;
       }
-      return response.json() as unknown as AssessmentSummary;
     },
     retry: false,
   });
@@ -197,28 +188,19 @@ export function AssessmentResultsViewer({ systemId, className }: AssessmentResul
   const { data: findings, isLoading: findingsLoading, error: findingsError } = useQuery({
     queryKey: ['/api/systems', systemId, 'findings'],
     queryFn: async () => {
-      const response = await fetch(`/api/systems/${systemId}/findings?limit=100`, {
-        headers: {
-          'Authorization': 'Bearer dev-token-123'
-        }
-      });
-      if (!response.ok) {
-        if (response.status === 404) {
+      try {
+        const response = await apiRequest('GET', `/api/systems/${systemId}/findings?limit=100`);
+        const result = await response.json();
+        // Handle both array and object with findings property
+        return Array.isArray(result) ? result : (result.findings || []) as Finding[];
+      } catch (error: any) {
+        if (error.message?.includes('404')) {
           // Try alternative endpoint
-          const altResponse = await fetch(`/api/findings?systemId=${systemId}`, {
-            headers: {
-              'Authorization': 'Bearer dev-token-123'
-            }
-          });
-          if (altResponse.ok) {
-            return await altResponse.json() as Finding[];
-          }
+          const altResponse = await apiRequest('GET', `/api/findings?systemId=${systemId}`);
+          return await altResponse.json() as Finding[];
         }
-        throw new Error('Failed to fetch findings');
+        throw error;
       }
-      const result = await response.json();
-      // Handle both array and object with findings property
-      return Array.isArray(result) ? result : (result.findings || []) as Finding[];
     },
     enabled: activeTab === 'findings',
     retry: false,

@@ -25,7 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { authenticatedFetch } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 
 // Document types with metadata
 export type DocumentType = 
@@ -141,10 +141,7 @@ export function QuickDocumentGenerator({
   const { data: readinessResponse, isLoading } = useQuery({
     queryKey: ['/api/systems', systemId, 'readiness'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/systems/${systemId}/readiness`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch system readiness');
-      }
+      const response = await apiRequest('GET', `/api/systems/${systemId}/readiness`);
       return response.json();
     },
     enabled: !!systemId

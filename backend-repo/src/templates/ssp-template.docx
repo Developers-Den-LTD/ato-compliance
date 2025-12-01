@@ -1,0 +1,10 @@
+This is a mock DOCX template for testing purposes. In a real scenario, this would be a binary DOCX file.
+
+Template Content:
+- System Name: {{systemName}}
+- System Owner: {{systemOwner}}
+- Classification Level: {{classificationLevel}}
+- Implementation Date: {{implementationDate}}
+- Security Controls: {{securityControls}}
+
+This template contains merge fields that should be extracted by the template parser.

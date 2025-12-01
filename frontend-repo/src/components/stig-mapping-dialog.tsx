@@ -69,10 +69,12 @@ export function STIGMappingDialog({ open, onOpenChange, systemId }: STIGMappingD
   // Fetch control mappings
   const { data: controlMappings = [], isLoading: mappingsLoading } = useQuery<ControlMapping[]>({
     queryKey: ['/api/assessment/control-mappings', systemId],
-    enabled: open && !!systemId,
+    enabled: open,
     queryFn: async () => {
-      if (!systemId) return [];
-      const response = await apiRequest('GET', `/api/assessment/control-mappings?systemId=${systemId}`);
+      const url = systemId 
+        ? `/api/assessment/control-mappings?systemId=${systemId}`
+        : '/api/assessment/control-mappings';
+      const response = await apiRequest('GET', url);
       if (response.ok) {
         return response.json();
       }
@@ -154,10 +156,13 @@ export function STIGMappingDialog({ open, onOpenChange, systemId }: STIGMappingD
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link className="h-5 w-5" />
-            STIG/JSIG Control Mappings
+            STIG/JSIG Control Mappings {systemId ? '(System-Specific)' : '(All Systems)'}
           </DialogTitle>
           <DialogDescription>
-            View and manage mappings between NIST controls and STIG/JSIG rules
+            {systemId 
+              ? 'Mappings filtered for the selected system\'s STIG profiles'
+              : 'All available mappings between NIST controls and STIG/JSIG rules'
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -343,8 +348,6 @@ export function STIGMappingDialog({ open, onOpenChange, systemId }: STIGMappingD
     </Dialog>
   );
 }
-
-
 
 
 

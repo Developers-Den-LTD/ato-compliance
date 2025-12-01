@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { 
   Shield, 
   Edit, 
@@ -77,10 +77,9 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
 
   // Fetch all controls for the system's impact level
   const { data: controlsData, isLoading: controlsLoading } = useQuery({
-    queryKey: ['/api/controls'],
+    queryKey: ['/api/controls', 'v2'],
     queryFn: async () => {
-      const response = await authenticatedFetch('/api/controls?limit=2000');
-      if (!response.ok) throw new Error('Failed to fetch controls');
+      const response = await apiRequest('GET', '/api/controls?limit=2000');
       const data = await response.json();
       return data;
     }
@@ -90,31 +89,30 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
   const controls = Array.isArray(controlsData?.controls) ? controlsData.controls : [];
 
   // Fetch system controls (implementation status and narratives)
-  const { data: systemControlsResponse, isLoading: systemControlsLoading, refetch: refetchSystemControls } = useQuery({
+  const { data: systemControls = [], isLoading: systemControlsLoading, refetch: refetchSystemControls } = useQuery({
     queryKey: ['systemControls', systemId],
     queryFn: async () => {
-      const token = localStorage.getItem('accessToken');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      };
+      const token = localStorage.getItem('sessionToken');
+      const headers: Record<string, string> = token 
+        ? { 'X-Session-Token': token }
+        : { 'Authorization': 'Bearer dev-token-123' };
       
-      const response = await fetch(`/api/systems/${systemId}/controls`, {
-        headers,
-        credentials: 'include'
-      });
+      const response = await apiRequest('GET', `/api/systems/${systemId}/controls`);
       if (!response.ok) throw new Error('Failed to fetch system controls');
       const data = await response.json();
       
-      // The API returns { systemControls: [...], pagination: {...} }
-      return data.systemControls || [];
+      // Ensure data is an array before using array methods
+      if (!Array.isArray(data)) {
+        console.error('Expected array of system controls, got:', data);
+        return [];
+      }
+      
+      return data as SystemControl[];
     },
     enabled: !!systemId,
     staleTime: 0, // Always fetch fresh data
     gcTime: 0 // Don't cache
   });
-
-  const systemControls = systemControlsResponse || [];
 
   // Save implementation narrative
   const saveNarrative = useMutation({
@@ -124,29 +122,13 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
       status: string;
       assignedTo?: string;
     }) => {
-      const token = localStorage.getItem('accessToken');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      };
-      
-      const response = await fetch(`/api/systems/${systemId}/controls/${controlId}`, {
-        method: 'PUT',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          implementationText: narrative,
-          status,
-          responsibleParty: assignedTo
-        })
+      return await apiRequest('PUT', '/api/systems/controls', {
+        systemId,
+        controlId,
+        implementationText: narrative,
+        status,
+        assignedTo
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to save narrative');
-      }
-      
-      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -254,27 +236,13 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
   const handleStatusChange = async (controlId: string, newStatus: string) => {
     try {
       const systemControl = systemControlsLookup[controlId];
-      const token = localStorage.getItem('accessToken');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      };
-      
-      const response = await fetch(`/api/systems/${systemId}/controls/${controlId}`, {
-        method: 'PUT',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          implementationText: systemControl?.implementationText,
-          status: newStatus,
-          responsibleParty: systemControl?.assignedTo
-        })
+      await apiRequest('PUT', '/api/systems/controls', {
+        systemId,
+        controlId,
+        implementationText: systemControl?.implementationText,
+        status: newStatus,
+        assignedTo: systemControl?.assignedTo
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update status');
-      }
       
       toast({
         title: 'Status Updated',
@@ -343,42 +311,51 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
 
   // Stats calculation moved to after filteredControls is defined
 
-  // Calculate suggested status based on narrative and evidence (read-only assessment)
-  // This provides intelligent status suggestions but does NOT automatically update
-  const calculateSuggestedStatus = (control: any) => {
-    const hasNarrative = control.implementationText && control.implementationText.trim().length > 50;
-    const hasEvidence = control.evidence && control.evidence.length > 0;
-    const narrativeLength = control.implementationText?.trim().length || 0;
-    
-    if (hasNarrative && hasEvidence && narrativeLength > 200) {
-      // Comprehensive narrative + evidence = fully implemented
-      return 'implemented';
-    } else if (hasNarrative && narrativeLength > 100) {
-      // Good narrative but missing evidence or detail = in progress
-      return 'in_progress';
-    } else if (hasNarrative || control.status === 'planning') {
-      // Some narrative or planning status = planning
-      return 'planning';
-    }
-    // No narrative or evidence = not implemented
-    return 'not_implemented';
-  };
 
-  // Assess controls and identify status mismatches (for visual indicators)
-  const controlsWithSuggestedStatus = useMemo(() => {
-    return systemControls.map(sc => {
-      const suggestedStatus = calculateSuggestedStatus(sc);
-      const statusMismatch = suggestedStatus !== sc.status && 
-                            suggestedStatus === 'implemented' && 
-                            sc.status === 'not_implemented';
-      
-      return {
-        ...sc,
-        suggestedStatus,
-        statusMismatch // Show badge/indicator when system suggests status change
-      };
-    });
-  }, [systemControls]);
+  // Auto-update controls with narratives to implemented status
+  useEffect(() => {
+    const updateControlsWithNarratives = async () => {
+      if (systemControls.length > 0) {
+        const controlsToUpdate = systemControls.filter(sc => 
+          sc.implementationText?.trim() && sc.status === 'not_implemented'
+        );
+        
+        if (controlsToUpdate.length > 0) {
+          console.log('Found controls with narratives that need status update:', controlsToUpdate.length);
+          
+          // Update controls sequentially to avoid race conditions
+          for (const sc of controlsToUpdate) {
+            try {
+              console.log(`Updating control ${sc.controlId} to implemented status...`);
+              await apiRequest('PUT', '/api/systems/controls', {
+                systemId,
+                controlId: sc.controlId,
+                implementationText: sc.implementationText,
+                status: 'implemented',
+                assignedTo: sc.assignedTo
+              });
+              console.log(`✅ Successfully updated control ${sc.controlId} to implemented status`);
+            } catch (error) {
+              console.error(`❌ Failed to update control ${sc.controlId}:`, error);
+            }
+          }
+          
+          // Refresh the data after all updates
+          console.log('Refreshing data after status updates...');
+          await queryClient.invalidateQueries({ queryKey: ['systemControls', systemId] });
+          
+          // Show success toast
+          toast({
+            title: 'Status Updates Complete',
+            description: `Updated ${controlsToUpdate.length} controls to implemented status.`,
+          });
+        }
+      }
+    };
+
+    // Run immediately when component loads and when systemControls data changes
+    updateControlsWithNarratives();
+  }, [systemControls, systemId, queryClient]); // Run when systemControls data changes
 
   if (controlsLoading || systemControlsLoading) {
     return (
@@ -716,11 +693,6 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
                     const systemControl = systemControlsLookup[control.id];
                     const hasNarrative = systemControl?.implementationText?.trim();
                     
-                    // Calculate suggested status
-                    const suggestedStatus = systemControl ? calculateSuggestedStatus(systemControl) : 'not_implemented';
-                    const currentStatus = systemControl?.status || 'not_implemented';
-                    const showSuggestion = suggestedStatus !== currentStatus && hasNarrative;
-                    
                     return (
                       <TableRow key={control.id} data-testid={`control-row-${control.id}`}>
                         <TableCell>
@@ -743,21 +715,13 @@ export function ControlsManager({ systemId }: ControlsManagerProps) {
                         </TableCell>
                         <TableCell className="text-sm">{control.family}</TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge 
-                              variant={getStatusBadgeVariant(currentStatus)}
-                              className="flex items-center gap-1 w-fit"
-                            >
-                              {getStatusIcon(currentStatus)}
-                              {currentStatus.replace('_', ' ')}
-                            </Badge>
-                            {showSuggestion && (
-                              <div className="flex items-center gap-1 text-xs text-blue-600">
-                                <span className="font-semibold">💡 Suggested:</span>
-                                <span className="font-medium">{suggestedStatus.replace('_', ' ')}</span>
-                              </div>
-                            )}
-                          </div>
+                          <Badge 
+                            variant={getStatusBadgeVariant(systemControl?.status || 'not_implemented')}
+                            className="flex items-center gap-1 w-fit"
+                          >
+                            {getStatusIcon(systemControl?.status || 'not_implemented')}
+                            {(systemControl?.status || 'not_implemented').replace('_', ' ')}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">

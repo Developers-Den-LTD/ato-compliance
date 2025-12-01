@@ -23,7 +23,8 @@ import {
   Eye,
   Brain,
   FileSearch,
-  MessageSquare
+  MessageSquare,
+  Shield
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -432,7 +433,7 @@ export function DocumentProcessor({ systemId }: DocumentProcessorProps) {
                         <TableCell>
                           <div>
                             <p className="font-medium">{artifact.title}</p>
-                            <p className="text-sm text-muted-foreground">{artifact.name}</p>
+                            <p className="text-sm text-muted-foreground">{artifact.fileName}</p>
                             {extractionSummaries.has(artifact.id) && (
                               <p className="text-xs text-muted-foreground mt-1">
                                 Extracted: {extractionSummaries.get(artifact.id)?.sectionCount ?? 0} sections, depth {extractionSummaries.get(artifact.id)?.hierarchyDepth ?? 0}
@@ -445,7 +446,7 @@ export function DocumentProcessor({ systemId }: DocumentProcessorProps) {
                             {ARTIFACT_TYPE_LABELS[artifact.type] || artifact.type}
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatBytes(artifact.size)}</TableCell>
+                        <TableCell>{formatBytes(artifact.fileSize)}</TableCell>
                         <TableCell>
                           {isProcessing ? (
                             <Badge variant="secondary">
@@ -580,6 +581,34 @@ export function DocumentProcessor({ systemId }: DocumentProcessorProps) {
                                   <div>Relationships: {artifact.processingResult.controlMappings.relationships.length}</div>
                                   <div>Processed: {artifact.processingResult.controlMappings.totalProcessed} controls</div>
                                   <div>Time: {artifact.processingResult.controlMappings.processingTime}ms</div>
+                                </div>
+                              </div>
+                            )}
+                            {artifact.processingResult.stigEvaluation && (
+                              <div className="mt-3 p-3 bg-purple-50 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Shield className="h-4 w-4 text-purple-600" />
+                                  <span className="text-sm font-medium text-purple-900">STIG Evaluation</span>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-purple-700">Profile: {artifact.processingResult.stigEvaluation.profile}</span>
+                                    <Badge variant={artifact.processingResult.stigEvaluation.complianceScore >= 80 ? 'default' : 'destructive'} className="text-xs">
+                                      {artifact.processingResult.stigEvaluation.complianceScore}% Compliant
+                                    </Badge>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2 text-xs text-purple-700">
+                                    <div>Evaluated: {artifact.processingResult.stigEvaluation.rulesEvaluated}</div>
+                                    <div>Passed: {artifact.processingResult.stigEvaluation.rulesPassed}</div>
+                                    <div>Failed: {artifact.processingResult.stigEvaluation.rulesFailed}</div>
+                                  </div>
+                                  {artifact.processingResult.stigEvaluation.categorizedResults && (
+                                    <div className="text-xs text-purple-700">
+                                      <div>CAT I: {artifact.processingResult.stigEvaluation.categorizedResults.catI.failed}/{artifact.processingResult.stigEvaluation.categorizedResults.catI.total} failed</div>
+                                      <div>CAT II: {artifact.processingResult.stigEvaluation.categorizedResults.catII.failed}/{artifact.processingResult.stigEvaluation.categorizedResults.catII.total} failed</div>
+                                      <div>CAT III: {artifact.processingResult.stigEvaluation.categorizedResults.catIII.failed}/{artifact.processingResult.stigEvaluation.categorizedResults.catIII.total} failed</div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}

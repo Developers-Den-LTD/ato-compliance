@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,9 +50,7 @@ export function AssessmentHistory({ systemId, limit = 10, onViewResults }: Asses
   const { data, isLoading } = useQuery({
     queryKey: ['/api/assessment/systems', systemId, 'history', limit, offset],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/assessment/systems/${systemId}/history?limit=${limit}&offset=${offset}`
-      );
+      const response = await apiRequest('GET', `/api/assessment/systems/${systemId}/history?limit=${limit}&offset=${offset}`);
       if (!response.ok) {
         throw new Error('Failed to fetch assessment history');
       }

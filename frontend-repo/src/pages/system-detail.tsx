@@ -13,8 +13,9 @@ import { AssessmentDashboard } from "@/components/assessment-dashboard";
 import { ControlsManager } from "@/components/controls-manager";
 import { DocumentsTab } from "@/components/documents-tab";
 import { QuickDocumentGenerator, DocumentType } from "@/components/quick-document-generator";
+import { STIGMappingDialog } from "@/components/stig-mapping-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { authenticatedFetch } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, 
   Server, 
@@ -33,7 +34,7 @@ import {
   CheckCircle,
   AlertTriangle
 } from "lucide-react";
-import type { System, ComplianceStatusType } from "@shared/schema";
+import type { System, ComplianceStatusType } from "@/types/schema";
 
 const impactLevelColors = {
   Low: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
@@ -47,12 +48,13 @@ export default function SystemDetail() {
   const { toast } = useToast();
   const systemId = params.id as string;
   const [activeTab, setActiveTab] = useState("overview");
+  const [isSTIGMappingOpen, setIsSTIGMappingOpen] = useState(false);
 
   // Fetch system data
   const { data: system, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/systems', systemId],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/systems/${systemId}`);
+      const response = await apiRequest('GET', `/api/systems/${systemId}`);
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('System not found');
@@ -64,47 +66,39 @@ export default function SystemDetail() {
     enabled: !!systemId,
   });
 
-  // Fetch system metrics data from real API (optional - returns default values if not available)
+  // Fetch system metrics data from real API
   const { data: systemMetrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['/api/systems', systemId, 'metrics'],
     queryFn: async () => {
-      try {
-        const response = await authenticatedFetch(`/api/systems/${systemId}/metrics`);
-        if (!response.ok) {
-          // Return default metrics if endpoint doesn't exist yet
-          return {
-            controlsImplemented: 0,
-            totalControls: 0,
-            documentsCount: 0,
-            findingsCount: 0,
-            lastAssessment: 'Not assessed',
-            nextAssessment: 'TBD',
-            compliancePercentage: 0,
-          };
-        }
-        return response.json() as Promise<{
-          controlsImplemented: number;
-          totalControls: number;
-          documentsCount: number;
-          findingsCount: number;
-          lastAssessment: string;
-          nextAssessment: string;
-          compliancePercentage: number;
-        }>;
-      } catch (error) {
-        // Return default metrics on error
-        return {
-          controlsImplemented: 0,
-          totalControls: 0,
-          documentsCount: 0,
-          findingsCount: 0,
-          lastAssessment: 'Not assessed',
-          nextAssessment: 'TBD',
-          compliancePercentage: 0,
-        };
+      const response = await apiRequest('GET', `/api/systems/${systemId}/metrics`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch system metrics');
       }
+      return response.json() as Promise<{
+        controlsImplemented: number;
+        totalControls: number;
+        documentsCount: number;
+        findingsCount: number;
+        lastAssessment: string;
+        nextAssessment: string;
+        compliancePercentage: number;
+      }>;
     },
     enabled: !!systemId && !!system,
+  });
+
+  // Fetch STIG mappings for this system
+  const { data: stigMappings = [], isLoading: stigMappingsLoading } = useQuery({
+    queryKey: ['/api/assessment/control-mappings', systemId],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/assessment/control-mappings?systemId=${systemId}`);
+      if (!response.ok) {
+        return [];
+      }
+      return response.json();
+    },
+    enabled: !!systemId,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Combine system data with metrics
@@ -120,9 +114,7 @@ export default function SystemDetail() {
   // Document generation handlers
   const handleGenerateDocument = async (systemId: string, documentType: DocumentType) => {
     try {
-      const response = await authenticatedFetch('/api/generation/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await apiRequest('POST', '/api/generation/start', {
         body: JSON.stringify({
           systemId,
           documentTypes: [documentType],
@@ -161,6 +153,10 @@ export default function SystemDetail() {
 
   const handleStartGuidedWorkflow = (systemId: string) => {
     setLocation(`/systems/${systemId}/ato-workflow`);
+  };
+
+  const handleViewSTIGMappings = () => {
+    setIsSTIGMappingOpen(true);
   };
 
   // Loading State
@@ -540,6 +536,124 @@ export default function SystemDetail() {
             </Card>
           </div>
 
+          {/* STIG/JSIG Mappings Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                STIG/JSIG Control Mappings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stigMappingsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : system?.stigProfiles && system.stigProfiles.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Show assigned STIG profiles */}
+                  <div className="mb-4">
+                    <p className="text-sm font-medium mb-2">Assigned STIG Profiles:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {system.stigProfiles.map((profile) => (
+                        <Badge key={profile} variant="secondary">
+                          {profile}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {stigMappings.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{stigMappings.length} STIG-to-NIST control mappings found</p>
+                          <p className="text-xs text-muted-foreground">
+                            Security controls mapped to STIG requirements for this system
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleViewSTIGMappings}
+                          data-testid="button-view-stig-mappings"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View All Mappings
+                        </Button>
+                      </div>
+                      
+                      {/* Show preview of first few mappings */}
+                      <div className="space-y-2">
+                        {stigMappings.slice(0, 3).map((mapping: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {mapping.controlId}
+                            </Badge>
+                            <span className="text-sm font-medium">{mapping.controlTitle}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {mapping.stigRuleTitle}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={mapping.severity === 'high' ? 'destructive' : mapping.severity === 'medium' ? 'default' : 'secondary'}>
+                            {mapping.severity}
+                          </Badge>
+                          <Badge variant="outline" className="uppercase">
+                            {mapping.ruleType}
+                          </Badge>
+                        </div>
+                          </div>
+                        ))}
+                        
+                        {stigMappings.length > 3 && (
+                          <div className="text-center pt-2">
+                            <p className="text-xs text-muted-foreground">
+                              and {stigMappings.length - 3} more mappings...
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        STIG profiles are assigned but no control mappings have been generated yet.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleViewSTIGMappings}
+                        className="mt-2"
+                      >
+                        Generate Mappings
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No STIG Profiles Assigned</h3>
+                  <p className="text-muted-foreground mb-4">
+                    This system doesn't have any STIG profiles assigned yet.
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    <Button variant="outline" size="sm" onClick={() => setActiveTab("settings")}>
+                      Configure STIG Profiles
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleViewSTIGMappings}>
+                      View All Available Mappings
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* System Description */}
           {system.description && (
             <Card>
@@ -641,6 +755,13 @@ export default function SystemDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* STIG Mapping Dialog */}
+      <STIGMappingDialog 
+        open={isSTIGMappingOpen}
+        onOpenChange={setIsSTIGMappingOpen}
+        systemId={systemId}
+      />
     </div>
   );
 }

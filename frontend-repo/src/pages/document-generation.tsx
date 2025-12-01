@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { authenticatedFetch } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 import { AtoGuidedWorkflow } from '@/components/ato-guided-workflow';
 import { 
   FileText, 
@@ -93,7 +93,7 @@ export default function DocumentGeneration() {
   const { data: jobs = [], isLoading, error, refetch } = useQuery({
     queryKey: ['/api/generation/jobs'],
     queryFn: async () => {
-      const response = await authenticatedFetch('/api/generation/jobs?limit=50');
+      const response = await apiRequest('GET', '/api/generation/jobs?limit=50');
       if (!response.ok) {
         throw new Error('Failed to fetch generation jobs');
       }
@@ -154,7 +154,7 @@ This SCTM document contains a comprehensive traceability matrix showing:
 const downloadDocument = async (jobId: string, documentTitle: string) => {
     console.log('UPDATED: downloadDocument called with jobId:', jobId);
     try {
-      const response = await authenticatedFetch(`/api/generation/result/${jobId}`);
+      const response = await apiRequest('GET', `/api/generation/result/${jobId}`);
       if (!response.ok) {
         throw new Error('Failed to download document');
       }
@@ -382,7 +382,7 @@ const downloadDocument = async (jobId: string, documentTitle: string) => {
   const viewDocument = async (jobId: string) => {
     console.log('UPDATED: viewDocument called with jobId:', jobId);
     try {
-      const response = await authenticatedFetch(`/api/generation/result/${jobId}`);
+      const response = await apiRequest('GET', `/api/generation/result/${jobId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch document');
       }

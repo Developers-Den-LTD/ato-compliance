@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -94,8 +94,7 @@ export function AtoGuidedWorkflow() {
   const { data: assessmentSummary, refetch: refetchAssessment } = useQuery({
     queryKey: ['/api/assessment/systems', selectedSystem, 'summary'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/assessment/systems/${selectedSystem}/summary`);
-      if (!response.ok) throw new Error('Assessment not found');
+      const response = await apiRequest('GET', `/api/assessment/systems/${selectedSystem}/summary`);
       return response.json() as Promise<AssessmentSummary>;
     },
     enabled: !!selectedSystem,
@@ -105,8 +104,7 @@ export function AtoGuidedWorkflow() {
   const { data: systemControls = [] } = useQuery({
     queryKey: ['/api/systems', selectedSystem, 'controls'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/systems/${selectedSystem}/controls`);
-      if (!response.ok) throw new Error('Failed to fetch system controls');
+      const response = await apiRequest('GET', `/api/systems/${selectedSystem}/controls`);
       return response.json();
     },
     enabled: !!selectedSystem,
@@ -298,18 +296,7 @@ export function AtoGuidedWorkflow() {
 
   const pollAssessmentStatus = useCallback(async (systemId: string): Promise<void> => {
     try {
-      const response = await authenticatedFetch(`/api/assessment/systems/${systemId}/status`);
-      
-      if (response.status === 404) {
-        // No assessment found, stop polling
-        setAssessmentStatus({ running: false, progress: 0, status: 'idle' });
-        return;
-      }
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch assessment status');
-      }
-      
+      const response = await apiRequest('GET', `/api/assessment/systems/${systemId}/status`);
       const status = await response.json();
       
       setAssessmentStatus({

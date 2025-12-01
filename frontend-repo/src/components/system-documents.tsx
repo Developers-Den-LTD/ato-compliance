@@ -77,20 +77,7 @@ export function SystemDocuments({ systemId }: SystemDocumentsProps) {
     queryFn: async () => {
       const getAuthToken = () => localStorage.getItem('sessionToken');
       const token = getAuthToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['X-Session-Token'] = token;
-      } else {
-        headers['Authorization'] = 'Bearer dev-token-123';
-      }
-
-      const response = await fetch(`/api/systems/${systemId}/documents`, {
-        headers,
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch documents');
-      }
+      const response = await apiRequest('GET', `/api/systems/${systemId}/documents`);
       const result = await response.json();
       return result.documents || [];
     },
@@ -121,11 +108,7 @@ export function SystemDocuments({ systemId }: SystemDocumentsProps) {
       // Use the artifact download endpoint for documents
       const downloadUrl = `/api/artifacts/public/${document.id}/${encodeURIComponent(document.title)}.pdf`;
       
-      const response = await fetch(downloadUrl);
-      if (!response.ok) {
-        throw new Error('Download failed');
-      }
-
+      const response = await apiRequest('GET', downloadUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');

@@ -21,7 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { StatCard } from '@/components/dashboard-stats';
 import type { SystemAssessmentSnapshot } from '@/types/assessment';
 

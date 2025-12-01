@@ -31,9 +31,8 @@ import {
   Scan
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { formatBytes } from '@/lib/utils';
-import { STIGUploadDialog } from '@/components/stig-upload-dialog';
 
 // Types
 interface System {
@@ -144,13 +143,13 @@ const ARTIFACT_TYPE_MIME_MAPPINGS = {
     'text/csv': ['.csv']
   },
   scan_results: {
-    'application/xml': ['.xml'],
-    'text/xml': ['.xml'],
-    'application/json': ['.json'],
+    'application/xml': ['.xml', '.ckl'],
+    'text/xml': ['.xml', '.ckl'],
+    'application/json': ['.json', '.cklb'],
     'text/plain': ['.txt'],
     'text/csv': ['.csv'],
     'application/pdf': ['.pdf'],
-    'application/octet-stream': ['.nessus']
+    'application/octet-stream': ['.nessus', '.cklb']
   },
   source_code: {
     'text/plain': ['.txt', '.py', '.js', '.ts', '.tsx', '.jsx', '.java', '.cs', '.cpp', '.c', '.h', '.go', '.rs', '.php', '.rb', '.sh'],
@@ -217,7 +216,6 @@ export default function DataIngestion() {
   };
 
   const { toast } = useToast();
-  const [stigUploadOpen, setStigUploadOpen] = useState(false);
   const [selectedSystem, setSelectedSystem] = useState<string>('');
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [uploadMetadata, setUploadMetadata] = useState({
@@ -255,11 +253,8 @@ export default function DataIngestion() {
       formData.append('tags', metadata.tags || '');
       formData.append('isPublic', metadata.isPublic.toString());
 
-      // Use authenticatedFetch for FormData uploads
-      const response = await authenticatedFetch('/api/artifacts/upload', {
-        method: 'POST',
-        body: formData
-      });
+      // Use apiRequest for FormData uploads
+      const response = await apiRequest('POST', '/api/artifacts/upload', formData);
 
       if (!response.ok) {
         const error = await response.json();
@@ -464,7 +459,6 @@ export default function DataIngestion() {
         <TabsList>
           <TabsTrigger value="upload" data-testid="tab-upload">Upload Documents</TabsTrigger>
           <TabsTrigger value="manage" data-testid="tab-manage">Manage Artifacts</TabsTrigger>
-          <TabsTrigger value="stig" data-testid="tab-stig">Upload STIG</TabsTrigger>
         </TabsList>
 
         <TabsContent value="upload" className="space-y-6">
@@ -735,40 +729,7 @@ export default function DataIngestion() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="stig" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Upload STIG Baseline
-              </CardTitle>
-              <CardDescription>
-                Upload DISA STIG XML files to add custom security baselines to your system
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center py-8">
-                <Button onClick={() => setStigUploadOpen(true)} size="lg">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload STIG File
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
-
-      <STIGUploadDialog 
-        open={stigUploadOpen} 
-        onOpenChange={setStigUploadOpen}
-        onUploadComplete={() => {
-          toast({
-            title: "STIG uploaded",
-            description: "STIG baseline has been imported successfully"
-          });
-        }}
-      />
     </div>
   );
 }

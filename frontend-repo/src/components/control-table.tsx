@@ -11,16 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
+import { RuleTypeBadge } from "@/components/rule-type-badge";
 import { Search, Filter, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { RuleTypeType } from "@/types/schema";
 
-// Type definitions
 interface Control {
   id: string;
   family: string;
   title: string;
   baseline: "Low" | "Moderate" | "High";
   implementationStatus: "compliant" | "non-compliant" | "in-progress" | "not-assessed";
+  ruleType: RuleTypeType;
   lastAssessed?: string;
   assignedTo?: string;
 }
@@ -40,50 +42,16 @@ const baselineColors = {
 export function ControlTable({ controls, onViewControl, className }: ControlTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBaseline, setFilterBaseline] = useState<string>("");
-  const [filterStatus, setFilterStatus] = useState<string>("");
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [filterRuleType, setFilterRuleType] = useState<string>("");
 
   const filteredControls = controls.filter(control => {
     const matchesSearch = control.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      control.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      control.family.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBaseline = !filterBaseline || control.baseline === filterBaseline;
-    const matchesStatus = !filterStatus || control.implementationStatus === filterStatus;
-    return matchesSearch && matchesBaseline && matchesStatus;
+                         control.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         control.family.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = !filterBaseline || control.baseline === filterBaseline;
+    const matchesRuleType = !filterRuleType || control.ruleType === filterRuleType;
+    return matchesSearch && matchesFilter && matchesRuleType;
   });
-
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredControls.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedControls = filteredControls.slice(startIndex, endIndex);
-
-  // Reset to page 1 when filters change
-  const handleSearchChange = (value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-  };
-
-  const handleBaselineChange = (value: string) => {
-    setFilterBaseline(value);
-    setCurrentPage(1);
-  };
-
-  const handleStatusChange = (value: string) => {
-    setFilterStatus(value);
-    setCurrentPage(1);
-  };
-
-  const clearAllFilters = () => {
-    setSearchTerm("");
-    setFilterBaseline("");
-    setFilterStatus("");
-    setCurrentPage(1);
-  };
-
-  const hasActiveFilters = searchTerm || filterBaseline || filterStatus;
 
   const handleViewControl = (controlId: string) => {
     console.log(`Viewing control: ${controlId}`);
@@ -91,14 +59,14 @@ export function ControlTable({ controls, onViewControl, className }: ControlTabl
   };
 
   return (
-    <div className={cn("space-y-4 w-full", className)} data-testid="control-table">
+    <div className={cn("space-y-4", className)} data-testid="control-table">
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search controls by ID, title, or family..."
             value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
             data-testid="input-search-controls"
           />
@@ -106,7 +74,7 @@ export function ControlTable({ controls, onViewControl, className }: ControlTabl
         <div className="flex gap-2">
           <select
             value={filterBaseline}
-            onChange={(e) => handleBaselineChange(e.target.value)}
+            onChange={(e) => setFilterBaseline(e.target.value)}
             className="px-3 py-2 border border-input bg-background rounded-md text-sm"
             data-testid="select-filter-baseline"
           >
@@ -115,129 +83,88 @@ export function ControlTable({ controls, onViewControl, className }: ControlTabl
             <option value="Moderate">Moderate</option>
             <option value="High">High</option>
           </select>
-
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setShowMoreFilters(!showMoreFilters)}
+          <select
+            value={filterRuleType}
+            onChange={(e) => setFilterRuleType(e.target.value)}
+            className="px-3 py-2 border border-input bg-background rounded-md text-sm"
+            data-testid="select-filter-rule-type"
           >
+            <option value="">All Rule Types</option>
+            <option value="stig">STIG</option>
+            <option value="jsig">JSIG</option>
+          </select>
+          <Button variant="outline" size="sm">
             <Filter className="h-4 w-4 mr-2" />
             More Filters
           </Button>
-          {hasActiveFilters && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={clearAllFilters}
-            >
-              Clear All
-            </Button>
-          )}
         </div>
       </div>
 
-      {/* More Filters Section */}
-      {showMoreFilters && (
-        <div className="p-4 border rounded-md bg-muted/50">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Status</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-              >
-                <option value="">All Statuses</option>
-                <option value="compliant">Compliant</option>
-                <option value="non-compliant">Non-Compliant</option>
-                <option value="in-progress">In Progress</option>
-                <option value="not-assessed">Not Assessed</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="rounded-md border w-full">
-        <div className="w-full overflow-x-auto">
-          <Table className="min-w-[900px]">
-
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px] whitespace-nowrap">Control ID</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead className="w-[120px] whitespace-nowrap">Family</TableHead>
-                <TableHead className="w-[120px] whitespace-nowrap">Baseline</TableHead>
-                <TableHead className="w-[140px] whitespace-nowrap">Status</TableHead>
-                <TableHead className="w-[120px] whitespace-nowrap">Assigned To</TableHead>
-                <TableHead className="w-[120px] whitespace-nowrap">Last Assessed</TableHead>
-                <TableHead className="w-[100px] whitespace-nowrap">Actions</TableHead>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[120px]">Control ID</TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead className="w-[120px]">Family</TableHead>
+              <TableHead className="w-[100px]">Rule Type</TableHead>
+              <TableHead className="w-[120px]">Baseline</TableHead>
+              <TableHead className="w-[140px]">Status</TableHead>
+              <TableHead className="w-[120px]">Assigned To</TableHead>
+              <TableHead className="w-[120px]">Last Assessed</TableHead>
+              <TableHead className="w-[100px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredControls.map((control) => (
+              <TableRow key={control.id} className="hover-elevate">
+                <TableCell className="font-mono font-medium">{control.id}</TableCell>
+                <TableCell className="max-w-[300px] truncate">{control.title}</TableCell>
+                <TableCell>
+                  <Badge variant="outline">{control.family}</Badge>
+                </TableCell>
+                <TableCell>
+                  <RuleTypeBadge ruleType={control.ruleType ?? 'stig'} />
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={baselineColors[control.baseline]}>
+                    {control.baseline}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={control.implementationStatus} />
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {control.assignedTo || "Unassigned"}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {control.lastAssessed || "Never"}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleViewControl(control.id)}
+                    data-testid={`button-view-control-${control.id}`}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedControls.map((control) => (
-                <TableRow key={control.id} className="hover-elevate">
-                  <TableCell className="font-mono font-medium">{control.id}</TableCell>
-                  <TableCell className="max-w-[300px] truncate">{control.title}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{control.family}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={baselineColors[control.baseline]}>
-                      {control.baseline}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={control.implementationStatus} />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {control.assignedTo || "Unassigned"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {control.lastAssessed || "Never"}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewControl(control.id)}
-                      data-testid={`button-view-control-${control.id}`}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
         <div>
-          Showing {startIndex + 1}-{Math.min(endIndex, filteredControls.length)} of {filteredControls.length} controls
-          {filteredControls.length !== controls.length && ` (filtered from ${controls.length})`}
+          Showing {filteredControls.length} of {controls.length} controls
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-          >
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" disabled>
             Previous
           </Button>
-          <div className="flex items-center gap-1">
-            <span className="text-sm">
-              Page {currentPage} of {totalPages}
-            </span>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
-          >
+          <Button variant="outline" size="sm" disabled>
             Next
           </Button>
         </div>

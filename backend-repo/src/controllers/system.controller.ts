@@ -6,10 +6,23 @@ export class SystemController {
   async getSystems(req: AuthRequest, res: Response) {
     try {
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const search = req.query.search as string || '';
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string;
+      const offset = (page - 1) * limit;
 
-      const result = await systemService.getSystems(page, limit, search);
+      const query = {
+        search,
+        category: req.query.category as string,
+        impactLevel: req.query.impactLevel as string,
+        complianceStatus: req.query.complianceStatus as string,
+        owner: req.query.owner as string,
+        limit,
+        offset,
+        sortBy: (req.query.sortBy as string) || 'name',
+        sortOrder: (req.query.sortOrder as string) || 'asc',
+      };
+
+      const result = await systemService.getSystems(query);
 
       return res.status(200).json(result);
     } catch (error) {
@@ -37,7 +50,7 @@ export class SystemController {
 
   async createSystem(req: AuthRequest, res: Response) {
     try {
-      const { name, description, category, impactLevel, owner, systemType, operatingSystem } = req.body;
+      const { name, description, category, impactLevel, complianceStatus, systemType, operatingSystem, stigProfiles, autoStigUpdates } = req.body;
 
       // Validation
       if (!name || !category || !impactLevel) {
@@ -54,19 +67,21 @@ export class SystemController {
 
       const newSystem = await systemService.createSystem({
         name,
-        description,
+        description: description || 'TBD',
         category,
         impactLevel,
-        owner,
+        complianceStatus: complianceStatus || 'not-assessed',
+        owner: req.user!.userId, // Use authenticated user's ID as owner
         systemType,
         operatingSystem,
-        createdBy: req.user!.userId,
+        stigProfiles,
+        autoStigUpdates,
       });
 
       return res.status(201).json({ system: newSystem });
     } catch (error) {
       console.error('Create system error:', error);
-      return res.status(500).json({ error: 'Failed to create system' });
+      return res.status(500).json({ error: 'Failed to create system', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 

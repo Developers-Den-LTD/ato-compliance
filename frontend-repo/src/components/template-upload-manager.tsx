@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useMutation } from '@tanstack/react-query';
-import { authenticatedFetch } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -119,16 +118,7 @@ export function TemplateUploadManager({ onSuccess, onCancel }: TemplateUploadMan
   // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await authenticatedFetch('/api/templates', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Upload failed');
-      }
-
+      const response = await apiRequest('POST', '/api/templates', formData);
       return response.json();
     },
     onSuccess: (data) => {

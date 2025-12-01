@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, FileText, Download, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import type { System, ImpactLevelType, ComplianceStatusType } from "@shared/schema";
+import type { System, ImpactLevelType, ComplianceStatusType } from "@/types/schema";
 
 interface AnalyticsResponse {
   systems: {
@@ -139,6 +139,12 @@ export default function Dashboard() {
   const handleSTIGMapping = () => {
     // Open STIG mapping dialog (will let user select system if none selected)
     setSelectedSystemId(undefined);
+    setIsSTIGMappingOpen(true);
+  };
+
+  const handleSystemSTIGMapping = (systemId: string) => {
+    // Open STIG mapping dialog for specific system
+    setSelectedSystemId(systemId);
     setIsSTIGMappingOpen(true);
   };
 
@@ -302,6 +308,7 @@ export default function Dashboard() {
                   onEdit={() => {}}
                   onDelete={() => {}}
                   onView={() => handleViewSystem(system.id)}
+                  onViewSTIGMappings={handleSystemSTIGMapping}
                   className="border-0 shadow-none bg-muted/30"
                 />
               ))}

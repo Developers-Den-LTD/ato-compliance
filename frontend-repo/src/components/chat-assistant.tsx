@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,18 +57,8 @@ export function ChatAssistant() {
     try {
       abortControllerRef.current = new AbortController();
       
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage.content }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
+      // Note: Using direct fetch for streaming response support
+      const response = await apiRequest('POST', '/api/chat', { message: userMessage.content });
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();

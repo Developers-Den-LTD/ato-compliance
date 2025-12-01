@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play, Shield } from "lucide-react";
@@ -15,20 +16,13 @@ export default function TestAssessment() {
     setIsStarting(true);
     
     try {
-      const response = await fetch(`/api/assessment/systems/${systemId}/assess`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer dev-token-123'
-        },
-        body: JSON.stringify({
-          assessmentMode: 'automated',
-          includeInformationalFindings: false,
-          generatePoamItems: true,
-          generateEvidence: true,
-          updateControlStatus: true,
-          riskTolerance: 'medium'
-        })
+      const response = await apiRequest('POST', `/api/assessment/systems/${systemId}/assess`, {
+        assessmentMode: 'automated',
+        includeInformationalFindings: false,
+        generatePoamItems: true,
+        generateEvidence: true,
+        updateControlStatus: true,
+        riskTolerance: 'medium'
       });
 
       const result = await response.json();

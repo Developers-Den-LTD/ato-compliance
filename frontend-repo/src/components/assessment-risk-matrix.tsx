@@ -4,6 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { 
   AlertTriangle, 
   Shield, 
   Target,
@@ -12,8 +19,12 @@ import {
   XCircle,
   AlertCircle,
   Info,
-  ChevronRight
+  ChevronRight,
+  FileText,
+  Calendar,
+  Tag
 } from 'lucide-react';
+import { useState } from 'react';
 
 interface RiskItem {
   id: string;
@@ -36,6 +47,19 @@ interface AssessmentRiskMatrixProps {
 }
 
 export function AssessmentRiskMatrix({ systemId, findings, controls }: AssessmentRiskMatrixProps) {
+  const [selectedRiskItem, setSelectedRiskItem] = useState<RiskItem | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const handleRiskItemClick = (item: RiskItem) => {
+    setSelectedRiskItem(item);
+    setDialogOpen(true);
+  };
+
+  const getFullFindingDetails = (riskItem: RiskItem) => {
+    if (!riskItem.findingId) return null;
+    return findings.find(f => f.id === riskItem.findingId);
+  };
+
   // Calculate risk items from findings and controls
   const calculateRiskItems = (): RiskItem[] => {
     const riskItems: RiskItem[] = [];
@@ -229,7 +253,11 @@ export function AssessmentRiskMatrix({ systemId, findings, controls }: Assessmen
                 </div>
                 <div className="flex items-center gap-2">
                   {getRemediationBadge(item.remediationEffort)}
-                  <Button size="sm" variant="ghost">
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => handleRiskItemClick(item)}
+                  >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -290,6 +318,184 @@ export function AssessmentRiskMatrix({ systemId, findings, controls }: Assessmen
           </div>
         </CardContent>
       </Card>
+
+      {/* Finding Detail Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {selectedRiskItem?.title}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRiskItem?.category} - Risk Score: {selectedRiskItem ? getRiskScore(selectedRiskItem) : 0}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedRiskItem && (
+            <div className="space-y-4">
+              {/* Status and Severity */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant={getRiskBadgeVariant(selectedRiskItem.severity)}>
+                  {selectedRiskItem.severity.toUpperCase()}
+                </Badge>
+                <Badge variant="outline">
+                  Status: {selectedRiskItem.status}
+                </Badge>
+                {selectedRiskItem.daysOpen !== undefined && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {selectedRiskItem.daysOpen} days open
+                  </Badge>
+                )}
+                <Badge className={getRemediationBadge(selectedRiskItem.remediationEffort).props.className}>
+                  {selectedRiskItem.remediationEffort} effort
+                </Badge>
+              </div>
+
+              {/* Risk Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Risk Assessment</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <div className="text-muted-foreground">Impact</div>
+                      <div className="font-medium capitalize">{selectedRiskItem.impact}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Likelihood</div>
+                      <div className="font-medium capitalize">{selectedRiskItem.likelihood}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Risk Score</div>
+                      <div className="font-medium">{getRiskScore(selectedRiskItem)}/90</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Finding Details */}
+              {(() => {
+                const findingDetails = getFullFindingDetails(selectedRiskItem);
+                if (findingDetails) {
+                  return (
+                    <>
+                      {/* Description */}
+                      {findingDetails.description && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Description</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {findingDetails.description}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Remediation - Prominently Displayed */}
+                      {findingDetails.remediation && (
+                        <Card className="border-blue-200 bg-blue-50/50">
+                          <CardHeader>
+                            <CardTitle className="text-sm flex items-center gap-2 text-blue-900">
+                              <Shield className="h-4 w-4" />
+                              Remediation Guidance
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm whitespace-pre-wrap text-blue-900">
+                              {findingDetails.remediation}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Evidence */}
+                      {findingDetails.evidence && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Evidence</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
+                              {findingDetails.evidence}
+                            </pre>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Additional Information */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">Additional Information</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                          {findingDetails.source && (
+                            <div className="flex items-start gap-2">
+                              <Tag className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                              <div>
+                                <div className="text-muted-foreground">Source</div>
+                                <div className="font-medium">{findingDetails.source}</div>
+                              </div>
+                            </div>
+                          )}
+                          {selectedRiskItem.controlId && (
+                            <div className="flex items-start gap-2">
+                              <Shield className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                              <div>
+                                <div className="text-muted-foreground">Related Control</div>
+                                <div className="font-medium">{selectedRiskItem.controlId}</div>
+                              </div>
+                            </div>
+                          )}
+                          {selectedRiskItem.findingId && (
+                            <div className="flex items-start gap-2">
+                              <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                              <div>
+                                <div className="text-muted-foreground">Finding ID</div>
+                                <div className="font-mono text-xs">{selectedRiskItem.findingId}</div>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Control Gap Details (for non-finding risk items) */}
+              {!selectedRiskItem.findingId && selectedRiskItem.category === 'Control Gap' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Control Gap Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div>
+                      <div className="text-muted-foreground">Control ID</div>
+                      <div className="font-medium">{selectedRiskItem.controlId}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Status</div>
+                      <div className="font-medium">Not Implemented</div>
+                    </div>
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        This control has not been implemented and requires immediate attention to reduce system risk.
+                      </AlertDescription>
+                    </Alert>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

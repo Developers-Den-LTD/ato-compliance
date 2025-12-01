@@ -7,9 +7,9 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { LoginPage } from "@/pages/login";
-import { RegisterPage } from "@/pages/register";
+import { AuthProvider, useAuth, RequireAuth } from "@/contexts/AuthContext";
+import { LoginForm, MFAForm } from "@/components/auth/LoginForm";
+import { AutoLogin } from "@/components/auth/AutoLogin";
 import Dashboard from "@/pages/dashboard";
 import Systems from "@/pages/systems";
 import SystemDetail from "@/pages/system-detail";
@@ -27,18 +27,7 @@ import ChatPage from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 import { useState } from "react";
 
-function PublicRouter() {
-  return (
-    <Switch>
-      <Route path="/login" component={LoginPage} />
-      <Route path="/register" component={RegisterPage} />
-      <Route path="/" component={LoginPage} />
-      <Route component={LoginPage} />
-    </Switch>
-  );
-}
-
-function ProtectedRouter() {
+function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -65,8 +54,62 @@ function ProtectedRouter() {
   );
 }
 
+function LoginPage() {
+  const [showMFA, setShowMFA] = useState(false);
+  const [mfaData, setMfaData] = useState<{ userId: string; challenge: string }>({ userId: '', challenge: '' });
+  const [, setLocation] = useLocation();
+
+  const handleLoginSuccess = () => {
+    setLocation('/');
+  };
+
+  const handleMFARequired = (userId: string, challenge: string) => {
+    setMfaData({ userId, challenge });
+    setShowMFA(true);
+  };
+
+  if (showMFA) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <MFAForm
+          userId={mfaData.userId}
+          challenge={mfaData.challenge}
+          onSuccess={handleLoginSuccess}
+          onBack={() => setShowMFA(false)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <LoginForm
+        onSuccess={handleLoginSuccess}
+        onMFARequired={handleMFARequired}
+      />
+    </div>
+  );
+}
+
 function AuthenticatedApp() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  const [location] = useLocation();
+
+  // Auto-login in development
+  if (process.env.NODE_ENV === 'development') {
+    return (
+      <>
+        <AutoLogin />
+        <InnerApp />
+      </>
+    );
+  }
+
+  return <InnerApp />;
+}
+
+function InnerApp() {
+  const { isAuthenticated, isLoading } = useAuth();
   const [location] = useLocation();
 
   // Show loading state
@@ -81,9 +124,9 @@ function AuthenticatedApp() {
     );
   }
 
-  // Show public routes if not authenticated
-  if (!isAuthenticated) {
-    return <PublicRouter />;
+  // Show login page if not authenticated
+  if (!isAuthenticated && location !== '/login') {
+    return <LoginPage />;
   }
 
   // Show authenticated app
@@ -96,18 +139,15 @@ function AuthenticatedApp() {
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex flex-col flex-1">
           <header className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                Welcome, <span className="font-semibold">{user?.username}</span>
-              </span>
               <ThemeToggle />
             </div>
           </header>
-          <main className="flex-1 min-w-0 overflow-auto p-6 bg-background">
-            <ProtectedRouter />
+          <main className="flex-1 overflow-auto p-6 bg-background">
+            <Router />
           </main>
         </div>
       </div>

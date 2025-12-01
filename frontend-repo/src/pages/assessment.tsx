@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RuleTypeBadge } from "@/components/rule-type-badge";
 import { AlertTriangle, CheckCircle, XCircle, Clock, Shield, FileCheck, Filter, Users } from "lucide-react";
-import type { RuleTypeType } from "@shared/schema";
+import type { RuleTypeType } from "@/types/schema";
 
 type System = {
   id: string;
@@ -50,8 +51,7 @@ export default function Assessment() {
   const { data: controlsResponse, isLoading: controlsLoading } = useQuery<{ controls: Control[]; total: number; filters: any }>({
     queryKey: ['/api/controls', 'v2'],
     queryFn: async () => {
-      const response = await fetch('/api/controls?limit=2000');
-      if (!response.ok) throw new Error('Failed to fetch controls');
+      const response = await apiRequest('GET', '/api/controls?limit=2000');
       return response.json();
     }
   });
@@ -72,7 +72,7 @@ export default function Assessment() {
   const notImplementedControls = controls.filter(c => c.status === 'not_implemented').length;
   const controlImplementationRate = controls.length > 0 ? (implementedControls / controls.length) * 100 : 0;
 
-  // Calculate STIG/JSTIG rule metrics
+  // Calculate STIG/JSIG rule metrics
   const filteredStigRules = stigRules.filter(rule => selectedRuleTypes.includes(rule.ruleType));
   const stigRulesByType = {
     stig: stigRules.filter(rule => rule.ruleType === 'stig'),

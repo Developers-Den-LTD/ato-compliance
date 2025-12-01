@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SystemCard } from "@/components/system-card";
 import { SystemRegistrationModal } from "@/components/system-registration-modal";
 import { SystemEditModal } from "@/components/system-edit-modal";
+import { STIGMappingDialog } from "@/components/stig-mapping-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Plus, Search, Filter, AlertCircle, FileText, Download, Clock, CheckCircle, Copy } from "lucide-react";
-import type { System, ImpactLevelType, ComplianceStatusType } from "@shared/schema";
+import type { System, ImpactLevelType, ComplianceStatusType } from "@/types/schema";
 
 // Generate a text preview for SCTM documents
 const generateSCTMPreview = (doc: any) => {
@@ -107,6 +108,10 @@ export default function Systems() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState<'generating' | 'completed' | 'failed'>('generating');
   const [generatedDocument, setGeneratedDocument] = useState<string | null>(null);
+  
+  // STIG Mapping modal state
+  const [isSTIGMappingOpen, setIsSTIGMappingOpen] = useState(false);
+  const [stigMappingSystemId, setStigMappingSystemId] = useState<string | undefined>();
 
 
   // Fetch systems from API
@@ -525,6 +530,11 @@ export default function Systems() {
     deleteSystemMutation.mutate(systemId);
   };
 
+  const handleViewSTIGMappings = (systemId: string) => {
+    setStigMappingSystemId(systemId);
+    setIsSTIGMappingOpen(true);
+  };
+
   const stats = {
     total: enrichedSystems.length,
     highImpact: enrichedSystems.filter(s => s.impactLevel === "High").length,
@@ -711,6 +721,7 @@ export default function Systems() {
                   onView={() => handleViewSystem(system.id)}
                   onDocumentGenerate={handleGenerateDocument}
                   onStartGuidedWorkflow={(systemId) => setLocation(`/systems/${systemId}/ato-workflow`)}
+                  onViewSTIGMappings={handleViewSTIGMappings}
                 />
               ))}
             </div>
@@ -864,6 +875,12 @@ export default function Systems() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <STIGMappingDialog 
+        open={isSTIGMappingOpen}
+        onOpenChange={setIsSTIGMappingOpen}
+        systemId={stigMappingSystemId}
+      />
     </div>
   );
 }

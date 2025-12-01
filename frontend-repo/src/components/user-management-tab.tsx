@@ -11,9 +11,7 @@ import { Users, Search, Trash2, Loader2, AlertCircle, UserPlus } from 'lucide-re
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { authApi } from '@/lib/authApi';
-import { queryClient } from '@/lib/queryClient';
-import { API_URL } from '@/config/api';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 interface User {
   id: string;
@@ -49,28 +47,14 @@ export function UserManagementTab() {
         limit: limit.toString(),
         ...(search && { search }),
       });
-      const response = await authApi.authenticatedFetch(
-        `${API_URL}/users?${params}`
-      );
-      if (!response.ok) throw new Error('Failed to fetch users');
+      const response = await apiRequest('GET', `/api/users?${params}`);
       return response.json();
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (userData: { username: string; password: string; role: string }) => {
-      const response = await authApi.authenticatedFetch(
-        `${API_URL}/users`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(userData),
-        }
-      );
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create user');
-      }
+      const response = await apiRequest('POST', '/api/users', userData);
       return response.json();
     },
     onSuccess: () => {
@@ -93,14 +77,7 @@ export function UserManagementTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const response = await authApi.authenticatedFetch(
-        `${API_URL}/users/${userId}`,
-        { method: 'DELETE' }
-      );
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete user');
-      }
+      const response = await apiRequest('DELETE', `/api/users/${userId}`);
       return response.json();
     },
     onSuccess: () => {

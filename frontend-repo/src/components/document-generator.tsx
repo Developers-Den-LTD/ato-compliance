@@ -25,7 +25,7 @@ import {
   Shield
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 
 interface DocumentGeneratorProps {
   systemId: string;
@@ -101,22 +101,13 @@ export function DocumentGenerator({ systemId }: DocumentGeneratorProps) {
       setGenerationProgress(10);
       
       // Start generation job
-      const response = await authenticatedFetch('/api/generation/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemId,
-          documentTypes: ['ssp'],
-          includeEvidence: sspOptions.includeEvidence,
-          includeArtifacts: sspOptions.includeDiagrams,
-          templateOptions: sspOptions.templateOptions
-        })
+      const response = await apiRequest('POST', '/api/generation/start', {
+        systemId,
+        documentTypes: ['ssp'],
+        includeEvidence: sspOptions.includeEvidence,
+        includeArtifacts: sspOptions.includeDiagrams,
+        templateOptions: sspOptions.templateOptions
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to start SSP generation');
-      }
-
       const { jobId } = await response.json();
       setGenerationProgress(30);
 
@@ -127,24 +118,23 @@ export function DocumentGenerator({ systemId }: DocumentGeneratorProps) {
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second intervals
         
-        const statusResponse = await authenticatedFetch(`/api/generation/status/${jobId}`);
-        if (!statusResponse.ok) continue;
-        
-        const status = await statusResponse.json();
-        setGenerationProgress(Math.min(status.progress || 30, 90));
-        
-        if (status.status === 'completed') {
-          setGenerationProgress(100);
+        try {
+          const statusResponse = await apiRequest('GET', `/api/generation/status/${jobId}`);
+          const status = await statusResponse.json();
+          setGenerationProgress(Math.min(status.progress || 30, 90));
           
-          // Get the result
-          const resultResponse = await authenticatedFetch(`/api/generation/result/${jobId}`);
-          if (!resultResponse.ok) {
-            throw new Error('Failed to get generation result');
+          if (status.status === 'completed') {
+            setGenerationProgress(100);
+            
+            // Get the result
+            const resultResponse = await apiRequest('GET', `/api/generation/result/${jobId}`);
+            
+            return await resultResponse.json();
+          } else if (status.status === 'failed') {
+            throw new Error(status.error || 'Generation failed');
           }
-          
-          return await resultResponse.json();
-        } else if (status.status === 'failed') {
-          throw new Error(status.error || 'Generation failed');
+        } catch (error) {
+          console.error('Error checking status:', error);
         }
         
         attempts++;
@@ -181,19 +171,10 @@ export function DocumentGenerator({ systemId }: DocumentGeneratorProps) {
   // Enhanced SSP generation with new service
   const generateEnhancedSSP = useMutation({
     mutationFn: async () => {
-      const response = await authenticatedFetch('/api/documents/ssp/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemId,
-          ...sspOptions
-        })
+      const response = await apiRequest('POST', '/api/documents/ssp/generate', {
+        systemId,
+        ...sspOptions
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to generate SSP');
-      }
 
       // For DOCX/PDF, we get a blob
       if (sspOptions.format !== 'oscal') {
@@ -257,19 +238,10 @@ export function DocumentGenerator({ systemId }: DocumentGeneratorProps) {
 
   const previewSSP = async () => {
     try {
-      const response = await authenticatedFetch('/api/documents/ssp/preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemId,
-          sections: ['executive_summary', 'system_overview', 'compliance_summary']
-        })
+      const response = await apiRequest('POST', '/api/documents/ssp/preview', {
+        systemId,
+        sections: ['executive_summary', 'system_overview', 'compliance_summary']
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate preview');
-      }
-
       const preview = await response.json();
       setPreviewContent(preview.content);
       setShowPreview(true);

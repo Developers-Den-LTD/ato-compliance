@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -106,22 +107,7 @@ export function JobMonitor({ systemId, className }: JobMonitorProps) {
   const { data: jobs, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/jobs', systemId],
     queryFn: async () => {
-      const getAuthToken = () => localStorage.getItem('sessionToken');
-      const token = getAuthToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['X-Session-Token'] = token;
-      } else {
-        headers['Authorization'] = 'Bearer dev-token-123';
-      }
-      
-      const response = await fetch(`/api/jobs?systemId=${systemId}&limit=10`, {
-        headers,
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch jobs');
-      }
+      const response = await apiRequest('GET', `/api/jobs?systemId=${systemId}&limit=10`);
       const result = await response.json();
       return result.jobs as JobStatus[];
     },

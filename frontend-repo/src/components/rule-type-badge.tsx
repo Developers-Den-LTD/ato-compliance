@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Shield, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { RuleTypeType } from "@shared/schema";
+import type { RuleTypeType } from "@/types/schema";
 
 interface RuleTypeBadgeProps {
   ruleType: RuleTypeType;

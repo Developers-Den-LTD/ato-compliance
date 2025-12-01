@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 import { Upload, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
 
 interface STIGUploadDialogProps {
@@ -75,11 +76,7 @@ export function STIGUploadDialog({ open, onOpenChange, onUploadComplete }: STIGU
         message: 'Processing file...'
       });
 
-      const response = await fetch('/api/assessment/stig/import', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      });
+      const response = await apiRequest('POST', '/api/assessment/stig/import', formData);
 
       setUploadProgress({
         status: 'processing',

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -42,7 +43,7 @@ export function AssessmentProgressTracker({ systemId, onComplete }: AssessmentPr
   const { data: status, refetch, isLoading } = useQuery<AssessmentStatus>({
     queryKey: ['/api/assessment/systems', systemId, 'status'],
     queryFn: async () => {
-      const response = await fetch(`/api/assessment/systems/${systemId}/status`);
+      const response = await apiRequest('GET', `/api/assessment/systems/${systemId}/status`);
       if (!response.ok) {
         throw new Error('Failed to fetch assessment status');
       }

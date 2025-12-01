@@ -54,20 +54,7 @@ export function ControlImportDialog({ open, onOpenChange }: ControlImportDialogP
       formData.append('file', file);
       formData.append('mode', mode);
       
-      const response = await fetch('/api/controls/import/excel', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-        headers: {
-          'Authorization': 'Bearer dev-token-123'
-        }
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || error.error || 'Excel import failed');
-      }
-      
+      const response = await apiRequest('POST', '/api/controls/import/excel', formData);
       return response.json();
     },
     onSuccess: (data) => {
@@ -111,15 +98,7 @@ export function ControlImportDialog({ open, onOpenChange }: ControlImportDialogP
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await fetch('/api/controls/template', {
-        credentials: 'include',
-        headers: {
-          'Authorization': 'Bearer dev-token-123'
-        }
-      });
-      
-      if (!response.ok) throw new Error('Failed to download template');
-      
+      const response = await apiRequest('GET', '/api/controls/template');
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

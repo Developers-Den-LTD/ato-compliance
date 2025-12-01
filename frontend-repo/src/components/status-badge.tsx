@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ComplianceStatusType } from "@shared/schema";
+import type { ComplianceStatusType } from "@/types/schema";
 
 interface StatusBadgeProps {
   status: ComplianceStatusType;

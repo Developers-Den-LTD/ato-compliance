@@ -30,7 +30,7 @@ import {
   Info
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 
 interface Control {
   id: string;
@@ -82,8 +82,7 @@ export function NarrativeEditor({ systemId }: NarrativeEditorProps) {
   const { data: controlsResponse } = useQuery({
     queryKey: ['/api/controls', 'v2'],
     queryFn: async () => {
-      const response = await authenticatedFetch('/api/controls?limit=2000');
-      if (!response.ok) throw new Error('Failed to fetch controls');
+      const response = await apiRequest('GET', '/api/controls?limit=2000');
       const data = await response.json();
       return data;
     }
@@ -158,22 +157,12 @@ export function NarrativeEditor({ systemId }: NarrativeEditorProps) {
       includeGuidance?: boolean;
     }) => {
       // Use direct narrative generation endpoint
-      const response = await authenticatedFetch('/api/narrative/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemId,
-          controlId: data.controlId,
-          customPrompt: data.prompt,
-          includeGuidance: data.includeGuidance || false
-        })
+      const response = await apiRequest('POST', '/api/narrative/generate', {
+        systemId,
+        controlId: data.controlId,
+        customPrompt: data.prompt,
+        includeGuidance: data.includeGuidance || false
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to generate narrative');
-      }
-      
       return response.json();
     },
     onSuccess: (data) => {

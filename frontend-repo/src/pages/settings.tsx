@@ -14,8 +14,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { UserManagementTab } from '@/components/user-management-tab';
 
 // Configuration schemas
 const systemConfigSchema = z.object({
@@ -51,7 +49,6 @@ type LLMConfig = z.infer<typeof llmConfigSchema>;
 
 export default function Settings() {
   const { toast } = useToast();
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('system');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -197,12 +194,10 @@ export default function Settings() {
             <Bell className="w-4 h-4 mr-2" />
             Notifications
           </TabsTrigger>
-          {user?.role === 'admin' && (
-            <TabsTrigger value="users" data-testid="tab-users">
-              <Users className="w-4 h-4 mr-2" />
-              User Management
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="users" data-testid="tab-users">
+            <Users className="w-4 h-4 mr-2" />
+            User Management
+          </TabsTrigger>
         </TabsList>
 
         {/* System Configuration */}
@@ -741,11 +736,40 @@ export default function Settings() {
         </TabsContent>
 
         {/* User Management */}
-        {user?.role === 'admin' && (
-          <TabsContent value="users">
-            <UserManagementTab />
-          </TabsContent>
-        )}
+        <TabsContent value="users">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                User Management
+              </CardTitle>
+              <CardDescription>
+                Manage user accounts, roles, and permissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <AlertTriangle className="w-5 h-5 text-amber-500 inline mr-2" />
+                    <span className="text-sm font-medium">Enterprise Feature</span>
+                  </div>
+                  <Badge variant="outline">Coming Soon</Badge>
+                </div>
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium">User & Role Management</h3>
+                  <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+                    Manage user accounts, assign roles, and configure role-based access controls for compliance teams.
+                  </p>
+                  <Button className="mt-4" variant="outline" data-testid="button-manage-users">
+                    Manage Users
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );

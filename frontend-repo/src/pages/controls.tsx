@@ -1,30 +1,16 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ControlTable } from "@/components/control-table";
-
+import { ControlImportDialog } from "@/components/control-import-dialog";
+import { STIGUploadDialog } from "@/components/stig-upload-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Shield, AlertCircle, Import } from "lucide-react";
-import { buildApiUrl } from "@/config/api";
-
-// Control type definition
-interface Control {
-  id: string;
-  framework: string;
-  family: string;
-  title: string;
-  description: string | null;
-  baseline: string[];
-  priority: string | null;
-  enhancement: string | null;
-  parentControlId: string | null;
-  supplementalGuidance: string | null;
-  createdAt: string | null;
-  status?: string;
-}
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Import, Download, Shield, AlertCircle, Upload } from "lucide-react";
+import type { Control } from "@/types/schema";
 
 interface ControlsResponse {
   controls: Control[];
@@ -40,91 +26,58 @@ interface ControlsResponse {
 export default function Controls() {
   const [selectedFamily, setSelectedFamily] = useState<string>("");
   const [selectedBaseline, setSelectedBaseline] = useState<string>("");
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [stigUploadDialogOpen, setStigUploadDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch controls from API
   const { data: controlsResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/controls', { family: selectedFamily, baseline: selectedBaseline }],
-    queryFn: async () => {
+    queryKey: ['/api/controls', 'v2', { family: selectedFamily, baseline: selectedBaseline }],
+    queryFn: async ({ queryKey }) => {
+      const [endpoint, params] = queryKey as [string, Record<string, string>];
       const searchParams = new URLSearchParams();
-      if (selectedFamily) searchParams.append('family', selectedFamily);
-      if (selectedBaseline) searchParams.append('baseline', selectedBaseline);
+      if (params.family) searchParams.append('family', params.family);
+      if (params.baseline) searchParams.append('baseline', params.baseline);
       searchParams.append('limit', '2000');
       
-      const url = buildApiUrl(`/api/controls?${searchParams.toString()}`);
+      const url = params.family || params.baseline ? 
+        `${endpoint}?${searchParams.toString()}` : endpoint;
       
-      const token = localStorage.getItem('accessToken');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      };
-      
-      const response = await fetch(url, {
-        headers,
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch controls: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      // Transform pagination response to match expected format
-      return {
-        controls: data.controls || [],
-        total: data.pagination?.total || 0,
-        filters: {
-          family: selectedFamily,
-          baseline: selectedBaseline,
-          limit: 2000
-        }
-      };
+      const response = await apiRequest('GET', url);
+      return response.json();
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   }) as { data: ControlsResponse | undefined, isLoading: boolean, error: Error | null, refetch: () => void };
 
-  // Fetch control stats
-  const { data: statsData } = useQuery({
-    queryKey: ['/api/controls/stats'],
-    queryFn: async () => {
-      const url = buildApiUrl('/api/controls/stats');
-      const token = localStorage.getItem('accessToken');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      };
-      
-      const response = await fetch(url, {
-        headers,
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch stats: ${response.status}`);
-      }
-      
-      return response.json();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
   // Extract controls from response
   const controls = controlsResponse?.controls || [];
 
+  // Update control status mutation
+  const updateControlMutation = useMutation({
+    mutationFn: async ({ controlId, updates }: { controlId: string, updates: Partial<Control> }) => {
+      const response = await apiRequest('PUT', `/api/controls/${controlId}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/controls', 'v2'] });
+      toast({
+        title: "Success",
+        description: "Control updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update control: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
-
-  // Use stats from API or calculate from controls
+  // Calculate family statistics from real data
   const familyStats = useMemo(() => {
-    if (statsData?.byFamily) {
-      // Convert API stats to expected format
-      return Object.entries(statsData.byFamily).reduce((acc, [family, total]) => {
-        acc[family] = { total: total as number, implemented: 0 };
-        return acc;
-      }, {} as Record<string, { total: number; implemented: number }>);
-    }
-    
-    // Fallback: calculate from controls
     const stats: Record<string, { total: number; implemented: number }> = {};
+    
     controls.forEach(control => {
       if (!stats[control.family]) {
         stats[control.family] = { total: 0, implemented: 0 };
@@ -136,7 +89,7 @@ export default function Controls() {
     });
     
     return stats;
-  }, [controls, statsData]);
+  }, [controls]);
 
   // Get unique families and baselines for filtering
   const uniqueFamilies = useMemo(() => {
@@ -154,10 +107,13 @@ export default function Controls() {
     id: control.id,
     family: control.family,
     title: control.title,
-    baseline: (Array.isArray(control.baseline) && control.baseline.length > 0 ? control.baseline[0] : "Low") as "Low" | "Moderate" | "High",
-    implementationStatus: 'not-assessed' as const, // Controls library doesn't have status
+    baseline: (Array.isArray(control.baseline) ? control.baseline[0] : control.baseline) as "Low" | "Moderate" | "High",
+    implementationStatus: control.status === 'implemented' ? 'compliant' as const :
+                         control.status === 'partially_implemented' ? 'in-progress' as const :
+                         control.status === 'not_implemented' ? 'not-assessed' as const :
+                         'non-compliant' as const,
     lastAssessed: control.createdAt ? new Date(control.createdAt).toISOString().split('T')[0] : undefined,
-    assignedTo: undefined
+    assignedTo: "System Admin" // TODO: Add assignedTo field to Control schema
   }));
 
   const handleViewControl = (controlId: string) => {
@@ -165,39 +121,25 @@ export default function Controls() {
     // TODO: Navigate to control details page or open modal
   };
 
+  const handleUpdateControlStatus = (controlId: string, status: string) => {
+    const mappedStatus = status === 'compliant' ? 'implemented' :
+                        status === 'in-progress' ? 'partially_implemented' :
+                        status === 'non-compliant' ? 'not_implemented' : 'not_implemented';
+    
+    updateControlMutation.mutate({
+      controlId,
+      updates: { status: mappedStatus }
+    });
+  };
 
+  const handleImportSTIG = () => {
+    setStigUploadDialogOpen(true);
+  };
 
-  const handleImportSTIG = async () => {
-    console.log('Importing STIG controls');
-    try {
-      // Check current STIG status
-      const response = await fetch(buildApiUrl('/api/assessment/rule-types'), {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch STIG status');
-      }
-      
-      const stigStatus = await response.json();
-      
-      // Show STIG import status
-      toast({
-        title: "STIG Rules Status",
-        description: `✅ ${stigStatus.summary.stig.totalRules} STIG rules and ${stigStatus.summary.jsig.totalRules} JSIG rules are available.\n\nSTIG rules are automatically loaded during system initialization.`,
-      });
-      
-    } catch (error) {
-      console.error('STIG import error:', error);
-      toast({
-        title: "STIG Import Error", 
-        description: "Failed to check STIG status. STIG rules should be automatically loaded during database initialization.",
-        variant: "destructive",
-      });
-    }
+  const handleSTIGUploadComplete = () => {
+    // Refresh the page data when STIG upload completes
+    refetch();
+    setStigUploadDialogOpen(false);
   };
 
   const handleExportControls = () => {
@@ -206,30 +148,36 @@ export default function Controls() {
   };
 
   return (
-    <div className="space-y-6 max-w-full overflow-x-hidden min-w-0" data-testid="controls-page">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-6" data-testid="controls-page">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">NIST 800-53 Controls</h1>
           <p className="text-muted-foreground">
             Manage and track implementation status of security controls across your systems
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setImportDialogOpen(true)}
+            data-testid="button-import-controls"
+            disabled={isLoading}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import/Export Controls
+          </Button>
           <Button 
             variant="outline" 
             onClick={handleExportControls}
             data-testid="button-export-controls"
             disabled={isLoading}
-            className="whitespace-nowrap"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export Controls
+            Export
           </Button>
           <Button 
             onClick={handleImportSTIG}
             data-testid="button-import-stig"
             disabled={isLoading}
-            className="whitespace-nowrap"
           >
             <Import className="h-4 w-4 mr-2" />
             Import STIG
@@ -238,7 +186,7 @@ export default function Controls() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-4">
         <select
           value={selectedFamily}
           onChange={(e) => setSelectedFamily(e.target.value)}
@@ -283,7 +231,7 @@ export default function Controls() {
       {/* Loading State */}
       {isLoading && (
         <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
             {[...Array(8)].map((_, i) => (
               <Card key={i}>
                 <CardHeader className="pb-2">
@@ -347,7 +295,7 @@ export default function Controls() {
       {!isLoading && !error && (
         <>
           {Object.keys(familyStats).length > 0 && (
-            <div className="w-full grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
               {Object.entries(familyStats).map(([family, stats]) => {
                 const percentage = stats.total > 0 ? Math.round((stats.implemented / stats.total) * 100) : 0;
                 return (
@@ -381,7 +329,7 @@ export default function Controls() {
             </div>
           )}
 
-
+          {/* Controls Table */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -414,7 +362,18 @@ export default function Controls() {
         </>
       )}
 
+      {/* Control Import/Export Dialog */}
+      <ControlImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+      />
 
+      {/* STIG Upload Dialog */}
+      <STIGUploadDialog
+        open={stigUploadDialogOpen}
+        onOpenChange={setStigUploadDialogOpen}
+        onUploadComplete={handleSTIGUploadComplete}
+      />
     </div>
   );
 }

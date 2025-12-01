@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -32,8 +33,7 @@ export default function Analytics() {
   const { data: controlsResponse, isLoading: controlsLoading } = useQuery<{ controls: Control[]; total: number; filters: any }>({
     queryKey: ['/api/controls', 'v2'],
     queryFn: async () => {
-      const response = await fetch('/api/controls?limit=2000');
-      if (!response.ok) throw new Error('Failed to fetch controls');
+      const response = await apiRequest('GET', '/api/controls?limit=2000');
       return response.json();
     }
   });

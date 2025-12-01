@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge';
 import { Loader2, CheckCircle, AlertCircle, Shield } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { authenticatedFetch } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 
 interface SimpleBaselineAssignmentProps {
   systemId: string;
@@ -31,21 +31,10 @@ export function SimpleBaselineAssignment({ systemId, onClose }: SimpleBaselineAs
   const queryClient = useQueryClient();
 
   const assignBaselineControls = async (impactLevel: 'Low' | 'Moderate' | 'High') => {
-    const response = await authenticatedFetch('/api/simple-baseline-assignment/assign', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        systemId,
-        impactLevel
-      })
+    const response = await apiRequest('POST', '/api/simple-baseline-assignment/assign', {
+      systemId,
+      impactLevel
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to assign baseline controls');
-    }
-
     return response.json();
   };
 

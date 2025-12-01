@@ -30,7 +30,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { formatBytes } from '@/lib/utils';
 
 interface Control {
@@ -113,8 +113,7 @@ export function EvidenceUploadManager({ systemId }: EvidenceUploadManagerProps) 
   const { data: controls = [] } = useQuery({
     queryKey: ['/api/controls', 'v2'],
     queryFn: async () => {
-      const response = await authenticatedFetch('/api/controls?limit=2000');
-      if (!response.ok) throw new Error('Failed to fetch controls');
+      const response = await apiRequest('GET', '/api/controls?limit=2000');
       const data = await response.json();
       return data.controls || data;
     }
@@ -124,9 +123,11 @@ export function EvidenceUploadManager({ systemId }: EvidenceUploadManagerProps) 
   const { data: evidence = [], isLoading: evidenceLoading, refetch: refetchEvidence } = useQuery({
     queryKey: ['/api/artifacts/systems', systemId],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/artifacts/systems/${systemId}`);
-      if (!response.ok) {
-        if (response.status === 404) return [];
+      try {
+        const response = await apiRequest('GET', `/api/artifacts/systems/${systemId}`);
+        return await response.json();
+      } catch (error: any) {
+        if (error.message?.includes('404')) return [];
         throw new Error('Failed to fetch artifacts');
       }
       const data = await response.json();
@@ -158,11 +159,9 @@ export function EvidenceUploadManager({ systemId }: EvidenceUploadManagerProps) 
       'image/png': ['.png'],
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/svg+xml': ['.svg'],
-      'application/json': ['.json', '.cklb'],
-      'application/xml': ['.xml', '.ckl', '.nessus', '.xccdf'],
-      'text/xml': ['.xml', '.ckl', '.nessus', '.xccdf'],
-      'text/csv': ['.csv'],
-      'application/octet-stream': ['.nessus', '.cklb', '.ckl']
+      'application/json': ['.json'],
+      'application/xml': ['.xml'],
+      'text/csv': ['.csv']
     }
   });
 
@@ -186,16 +185,7 @@ export function EvidenceUploadManager({ systemId }: EvidenceUploadManagerProps) 
       // Backend doesn't have status or controlIds in artifact schema
       // These would need to be handled separately via evidence records
       
-      const response = await authenticatedFetch('/api/artifacts/upload', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload artifact');
-      }
-      
+      const response = await apiRequest('POST', '/api/artifacts/upload', formData);
       const result = await response.json();
       
       // If controlIds are specified, create evidence records linking to controls
@@ -203,18 +193,14 @@ export function EvidenceUploadManager({ systemId }: EvidenceUploadManagerProps) 
         await Promise.all(
           evidenceData.controlIds.map(async (controlId: string) => {
             try {
-              await authenticatedFetch('/api/evidence', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  systemId,
-                  controlId,
-                  artifactId: result.artifact.id,
-                  type: 'document',
-                  description: evidenceData.title,
-                  implementation: evidenceData.description || '',
-                  status: evidenceData.status || 'satisfies'
-                })
+              await apiRequest('POST', '/api/evidence', {
+                systemId,
+                controlId,
+                artifactId: result.artifact.id,
+                type: 'document',
+                description: evidenceData.title,
+                implementation: evidenceData.description || '',
+                status: evidenceData.status || 'satisfies'
               });
             } catch (err) {
               console.warn('Failed to create evidence record:', err);

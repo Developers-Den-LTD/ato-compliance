@@ -19,7 +19,7 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from './ui/alert-dialog';
-import { MoreHorizontal, Edit, Trash2, Eye } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, Eye, Shield } from 'lucide-react';
 import { QuickDocumentGenerator, DocumentType } from './quick-document-generator';
 
 export interface System {
@@ -46,6 +46,7 @@ interface SystemCardProps {
   onView?: (system: System) => void;
   onDocumentGenerate?: (systemId: string, documentType: DocumentType) => void;
   onStartGuidedWorkflow?: (systemId: string) => void;
+  onViewSTIGMappings?: (systemId: string) => void;
   className?: string;
 }
 
@@ -56,6 +57,7 @@ export const SystemCard: React.FC<SystemCardProps> = ({
   onView,
   onDocumentGenerate,
   onStartGuidedWorkflow,
+  onViewSTIGMappings,
   className = '',
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -115,6 +117,12 @@ export const SystemCard: React.FC<SystemCardProps> = ({
                   <DropdownMenuItem onClick={() => onView(system)} data-testid="view-system-button">
                     <Eye className="mr-2 h-4 w-4" />
                     View
+                  </DropdownMenuItem>
+                )}
+                {onViewSTIGMappings && (
+                  <DropdownMenuItem onClick={() => onViewSTIGMappings(system.id)} data-testid="view-stig-mappings-button">
+                    <Shield className="mr-2 h-4 w-4" />
+                    View STIG Mappings
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={() => onEdit(system)} data-testid="edit-system-button">

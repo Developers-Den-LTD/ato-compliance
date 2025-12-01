@@ -16,11 +16,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { AssessmentLifecycleTracker } from '@/components/assessment-lifecycle-tracker';
 import { EvidenceUploadManager } from '@/components/evidence-upload-manager';
 import { NarrativeEditor } from '@/components/narrative-editor';
-import { AssessmentInitiatorEnhanced } from '@/components/assessment-initiator-enhanced';
+import { AssessmentInitiator } from '@/components/assessment-initiator';
 import { AssessmentReportGenerator } from '@/components/assessment-report-generator';
 import { JobMonitor } from '@/components/job-monitor';
 import { AssessmentResultsViewer } from '@/components/assessment-results-viewer';
@@ -49,7 +49,7 @@ import {
   Building2,
   AlertCircle
 } from 'lucide-react';
-import type { System } from '@shared/schema';
+import type { System } from '@/types/schema';
 
 // Types for assessment management
 interface AssessmentSummary {
@@ -140,7 +140,7 @@ export default function AssessmentManagement() {
   const { data: system, isLoading: systemLoading } = useQuery({
     queryKey: ['/api/systems', systemId],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/systems/${systemId}`);
+      const response = await apiRequest('GET', `/api/systems/${systemId}`);
       if (!response.ok) throw new Error('Failed to fetch system');
       return response.json() as Promise<System>;
     },
@@ -150,7 +150,7 @@ export default function AssessmentManagement() {
   const { data: assessmentSummary, isLoading: summaryLoading, refetch: refetchSummary } = useQuery({
     queryKey: ['/api/assessment/systems', systemId, 'summary'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/assessment/systems/${systemId}/summary`);
+      const response = await apiRequest('GET', `/api/assessment/systems/${systemId}/summary`);
       if (!response.ok) {
         if (response.status === 404) {
           return null; // No assessments yet
@@ -165,7 +165,7 @@ export default function AssessmentManagement() {
   const { data: assessmentStatus, refetch: refetchStatus } = useQuery({
     queryKey: ['/api/assessment/systems', systemId, 'status'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/assessment/systems/${systemId}/status`);
+      const response = await apiRequest('GET', `/api/assessment/systems/${systemId}/status`);
       if (!response.ok) {
         if (response.status === 404) {
           return null; // No assessments yet
@@ -198,7 +198,7 @@ export default function AssessmentManagement() {
   const { data: systemControls = [], refetch: refetchControls } = useQuery({
     queryKey: ['/api/systems', systemId, 'controls'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/systems/${systemId}/controls`);
+      const response = await apiRequest('GET', `/api/systems/${systemId}/controls`);
       if (!response.ok) throw new Error('Failed to fetch system controls');
       return response.json() as Promise<SystemControl[]>;
     },
@@ -208,7 +208,7 @@ export default function AssessmentManagement() {
   const { data: evidence = [], refetch: refetchEvidence } = useQuery({
     queryKey: ['/api/evidence/system', systemId],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/evidence?systemId=${systemId}`);
+      const response = await apiRequest('GET', `/api/evidence?systemId=${systemId}`);
       if (!response.ok) throw new Error('Failed to fetch evidence');
       return response.json() as Promise<Evidence[]>;
     },
@@ -218,15 +218,7 @@ export default function AssessmentManagement() {
   // Start assessment mutation
   const startAssessment = useMutation({
     mutationFn: async (config: any) => {
-      const response = await authenticatedFetch(`/api/assessment/systems/${systemId}/assess`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to start assessment');
-      }
+      const response = await apiRequest('POST', `/api/assessment/systems/${systemId}/assess`, config);
       return response.json();
     },
     onSuccess: () => {
@@ -674,7 +666,7 @@ export default function AssessmentManagement() {
             assessmentId={assessmentStatus?.assessmentId}
           />
           
-          <AssessmentInitiatorEnhanced 
+          <AssessmentInitiator 
             systemId={systemId}
             onAssessmentStarted={(assessmentId) => {
               refetchStatus();

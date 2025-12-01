@@ -1,0 +1,89 @@
+{
+  "framework": "FedRAMP",
+  "version": "Rev 5",
+  "description": "Federal Risk and Authorization Management Program (FedRAMP) Security Controls",
+  "controls": [
+    {
+      "id": "AC-1",
+      "framework": "FedRAMP",
+      "family": "Access Control",
+      "title": "Access Control Policy and Procedures",
+      "description": "The organization develops, documents, and disseminates to [Assignment: organization-defined personnel or roles] an access control policy that addresses purpose, scope, roles, responsibilities, management commitment, coordination among organizational entities, and compliance; and procedures to facilitate the implementation of the access control policy and associated access controls; and reviews and updates the current access control policy [FedRAMP Assignment: at least every 3 years] and access control procedures [FedRAMP Assignment: at least annually].",
+      "baseline": ["FedRAMP Low", "FedRAMP Moderate", "FedRAMP High"],
+      "priority": "P1",
+      "supplementalGuidance": "This control addresses the establishment of policy and procedures for the effective implementation of selected security controls and control enhancements in the AC family. Policy and procedures reflect applicable federal laws, Executive Orders, directives, regulations, policies, standards, and guidance.",
+      "fedRampSpecific": true,
+      "parameters": {
+        "reviewFrequency": "At least every 3 years",
+        "procedureReviewFrequency": "At least annually"
+      }
+    },
+    {
+      "id": "AC-2",
+      "framework": "FedRAMP",
+      "family": "Access Control", 
+      "title": "Account Management",
+      "description": "The organization manages information system accounts, including establishing, activating, modifying, disabling, and removing accounts; reviews information system accounts [FedRAMP Assignment: at least annually]; and establishes procedures for requesting, approving, and implementing changes to information system accounts.",
+      "baseline": ["FedRAMP Low", "FedRAMP Moderate", "FedRAMP High"],
+      "priority": "P1",
+      "supplementalGuidance": "Information system account types include, for example, individual, shared, group, system, guest/anonymous, emergency, developer/manufacturer/vendor, temporary, and service accounts.",
+      "fedRampSpecific": true,
+      "enhancements": [
+        {
+          "id": "AC-2(1)",
+          "title": "Automated System Account Management",
+          "description": "The organization employs automated mechanisms to support the management of information system accounts.",
+          "baseline": ["FedRAMP Moderate", "FedRAMP High"]
+        },
+        {
+          "id": "AC-2(2)", 
+          "title": "Removal of Temporary / Emergency Accounts",
+          "description": "The information system automatically removes or disables temporary and emergency accounts after [FedRAMP Assignment: 72 hours for temporary and emergency account types].",
+          "baseline": ["FedRAMP Moderate", "FedRAMP High"]
+        },
+        {
+          "id": "AC-2(3)",
+          "title": "Disable Inactive Accounts", 
+          "description": "The information system automatically disables inactive accounts after [FedRAMP Assignment: 90 days for user accounts].",
+          "baseline": ["FedRAMP Moderate", "FedRAMP High"]
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "framework": "FedRAMP",
+      "family": "Access Control",
+      "title": "Access Enforcement",
+      "description": "The information system enforces approved authorizations for logical access to information and system resources in accordance with applicable access control policies.",
+      "baseline": ["FedRAMP Low", "FedRAMP Moderate", "FedRAMP High"],
+      "priority": "P1",
+      "supplementalGuidance": "Access control policies (e.g., identity-based policies, role-based policies, control matrices) and access enforcement mechanisms (e.g., access control lists, access control matrices, cryptography) are employed by organizations to control access between users (or processes acting on behalf of users) and objects (e.g., devices, files, records, processes, programs, domains) in the information system.",
+      "fedRampSpecific": true
+    },
+    {
+      "id": "AU-1",
+      "framework": "FedRAMP", 
+      "family": "Audit and Accountability",
+      "title": "Audit and Accountability Policy and Procedures",
+      "description": "The organization develops, documents, and disseminates to [Assignment: organization-defined personnel or roles] an audit and accountability policy that addresses purpose, scope, roles, responsibilities, management commitment, coordination among organizational entities, and compliance; and procedures to facilitate the implementation of the audit and accountability policy and associated audit and accountability controls; and reviews and updates the current audit and accountability policy [FedRAMP Assignment: at least every 3 years] and audit and accountability procedures [FedRAMP Assignment: at least annually].",
+      "baseline": ["FedRAMP Low", "FedRAMP Moderate", "FedRAMP High"],
+      "priority": "P1",
+      "supplementalGuidance": "This control addresses the establishment of policy and procedures for the effective implementation of selected security controls and control enhancements in the AU family.",
+      "fedRampSpecific": true
+    },
+    {
+      "id": "AU-2",
+      "framework": "FedRAMP",
+      "family": "Audit and Accountability", 
+      "title": "Auditable Events",
+      "description": "The organization determines that the information system is capable of auditing the following events: [FedRAMP Assignment: Successful and unsuccessful account logon events, account management events, object access, policy change, privilege functions, process tracking, and system events. For Web applications: all administrator activity, authentication checks, authorization checks, data deletions, data access, data changes, and permission changes]; coordinates the security audit function with other organizational entities requiring audit-related information to enhance mutual support and to help guide the selection of auditable events; provides a rationale for why the auditable events are deemed to be adequate to support after-the-fact investigations of security incidents; and determines that the following events are to be audited within the information system: [Assignment: organization-defined subset of the auditable events defined in AU-2 a. to be audited continually for each identified event].",
+      "baseline": ["FedRAMP Low", "FedRAMP Moderate", "FedRAMP High"],
+      "priority": "P1",
+      "supplementalGuidance": "An event is any observable occurrence in an organizational information system. Organizations identify audit events as those events which are significant and relevant to the security of information systems and the environments in which those systems operate in order to meet specific and ongoing audit needs.",
+      "fedRampSpecific": true,
+      "parameters": {
+        "auditableEvents": "Successful and unsuccessful account logon events, account management events, object access, policy change, privilege functions, process tracking, and system events. For Web applications: all administrator activity, authentication checks, authorization checks, data deletions, data access, data changes, and permission changes"
+      }
+    }
+  ]
+}

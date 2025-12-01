@@ -6,20 +6,6 @@ function getAuthToken(): string | null {
   return localStorage.getItem('accessToken');
 }
 
-// Helper to build full URL
-function buildFullUrl(url: string): string {
-  // If URL is already absolute, return as-is
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-  // If URL starts with /api, prepend the base URL
-  if (url.startsWith('/api')) {
-    return `${API_URL}${url.substring(4)}`; // Remove /api prefix since API_URL already includes it
-  }
-  // Otherwise prepend API_URL
-  return `${API_URL}${url}`;
-}
-
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -27,42 +13,28 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Build full URL from path
+function buildUrl(path: string): string {
+  // If already absolute, return as-is
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  // If starts with /api, use API_URL base
+  if (path.startsWith('/api')) {
+    return `${API_URL}${path.substring(4)}`;
+  }
+  // Otherwise prepend API_URL
+  return `${API_URL}${path}`;
+}
+
+// Main API request function - simplified single signature
 export async function apiRequest(
   method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response>;
-
-export async function apiRequest<T>(
-  url: string,
-  options?: RequestInit
-): Promise<T>;
-
-export async function apiRequest(
-  methodOrUrl: string,
-  urlOrOptions?: string | RequestInit,
+  path: string,
   data?: unknown
-): Promise<Response | any> {
-  // Handle overload cases
-  let method: string;
-  let url: string;
-  let requestData: unknown | undefined;
-  let isTypedRequest = false;
-
-  if (urlOrOptions && typeof urlOrOptions === 'string') {
-    // First overload: (method, url, data?)
-    method = methodOrUrl;
-    url = urlOrOptions;
-    requestData = data;
-  } else {
-    // Second overload: <T>(url, options?)
-    method = (urlOrOptions as RequestInit)?.method || 'GET';
-    url = methodOrUrl;
-    requestData = (urlOrOptions as RequestInit)?.body;
-    isTypedRequest = true;
-  }
-
-  const headers: Record<string, string> = requestData ? { "Content-Type": "application/json" } : {};
+): Promise<Response> {
+  const url = buildUrl(path);
+  const headers: Record<string, string> = {};
 
   // Add authentication headers
   const token = getAuthToken();
@@ -70,32 +42,40 @@ export async function apiRequest(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const fullUrl = buildFullUrl(url);
+  let body: any = undefined;
 
-  const res = await fetch(fullUrl, {
+  // Handle different data types
+  if (data) {
+    if (data instanceof FormData) {
+      // For FormData, don't set Content-Type (browser will set it with boundary)
+      body = data;
+    } else {
+      // For JSON data
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(data);
+    }
+  }
+
+  const res = await fetch(url, {
     method,
     headers,
-    body: requestData ? JSON.stringify(requestData) : undefined,
+    body,
     credentials: "include",
-    ...(urlOrOptions && typeof urlOrOptions !== 'string' ? urlOrOptions : {})
   });
 
   await throwIfResNotOk(res);
-  
-  // If it's a typed request, return JSON parsed
-  if (isTypedRequest) {
-    return await res.json();
-  }
-  
   return res;
 }
 
+// Default query function for TanStack Query
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const path = queryKey[0] as string;
+    const url = buildUrl(path);
     const headers: Record<string, string> = {};
 
     // Add authentication headers
@@ -104,10 +84,7 @@ export const getQueryFn: <T>(options: {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const url = queryKey.join("/") as string;
-    const fullUrl = buildFullUrl(url);
-
-    const res = await fetch(fullUrl, {
+    const res = await fetch(url, {
       headers,
       credentials: "include",
     });
@@ -119,27 +96,6 @@ export const getQueryFn: <T>(options: {
     await throwIfResNotOk(res);
     return await res.json();
   };
-
-// Helper function for authenticated fetch calls
-export async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {
-    ...options.headers as Record<string, string>,
-  };
-
-  // Add authentication headers
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const fullUrl = buildFullUrl(url);
-
-  return fetch(fullUrl, {
-    ...options,
-    headers,
-    credentials: 'include'
-  });
-}
 
 export const queryClient = new QueryClient({
   defaultOptions: {

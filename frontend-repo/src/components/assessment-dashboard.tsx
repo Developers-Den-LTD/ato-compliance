@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { queryClient, authenticatedFetch } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { AssessmentProgressTracker } from '@/components/assessment-progress-tracker';
 import { AssessmentHistory } from '@/components/assessment-history';
 import { AssessmentInitiatorEnhanced } from '@/components/assessment-initiator-enhanced';
 import { AssessmentRiskMatrix } from '@/components/assessment-risk-matrix';
 import { AssessmentResultsDetail } from '@/components/assessment-results-detail';
+import { VulnerabilityScanUpload } from '@/components/vulnerability-scan-upload';
 import { 
   Shield, 
   AlertTriangle, 
@@ -34,7 +35,8 @@ import {
   Target,
   Eye,
   History,
-  Settings
+  Settings,
+  Upload
 } from 'lucide-react';
 
 interface AssessmentSummary {
@@ -112,10 +114,9 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
   const [showAssessmentConfig, setShowAssessmentConfig] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showResultsDetail, setShowResultsDetail] = useState(false);
+  const [showScanUpload, setShowScanUpload] = useState(false);
   const [currentAssessmentId, setCurrentAssessmentId] = useState<string | null>(null);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
-  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
-  const [showFindingDetail, setShowFindingDetail] = useState(false);
   
   // Pre-define all handlers to avoid initialization issues
   const handleShowAssessmentConfig = () => {
@@ -155,16 +156,6 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
     setShowResultsDetail(true);
   };
   
-  const handleViewFinding = (finding: Finding) => {
-    setSelectedFinding(finding);
-    setShowFindingDetail(true);
-  };
-  
-  const handleCloseFindingDetail = () => {
-    setShowFindingDetail(false);
-    setSelectedFinding(null);
-  };
-  
   const handleAssessmentStarted = (assessmentId: string) => {
     setCurrentAssessmentId(assessmentId);
     setShowAssessmentConfig(false);
@@ -202,9 +193,11 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
   const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useQuery({
     queryKey: ['/api/assessment/systems', systemId, 'summary'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/assessment/systems/${systemId}/summary`);
-      if (!response.ok) {
-        if (response.status === 404) {
+      try {
+        const response = await apiRequest('GET', `/api/assessment/systems/${systemId}/summary`);
+        return response.json();
+      } catch (error: any) {
+        if (error.message?.includes('404')) {
           throw new Error('No assessments found. Run an assessment first.');
         }
         throw new Error('Failed to fetch assessment summary');
@@ -215,12 +208,24 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
   });
 
   // Fetch findings
-  const { data: findings = [], isLoading: findingsLoading } = useQuery({
-    queryKey: ['/api/findings/system', systemId],
+  const { data: findingsData, isLoading: findingsLoading } = useQuery({
+    queryKey: ['/api/ingestion/systems', systemId, 'findings'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/findings?systemId=${systemId}`);
-      if (!response.ok) throw new Error('Failed to fetch findings');
-      return response.json() as Promise<Finding[]>;
+      const response = await apiRequest('GET', `/api/ingestion/systems/${systemId}/findings`);
+      const data = await response.json();
+      return data.findings || [];
+    },
+    enabled: !!systemId,
+  });
+
+  const findings = findingsData || [];
+
+  // Fetch assessment results
+  const { data: assessmentResults } = useQuery({
+    queryKey: ['/api/assessment/systems', systemId, 'results'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/assessment/systems/${systemId}/results`);
+      return response.json();
     },
     enabled: !!systemId,
   });
@@ -229,9 +234,12 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
   const { data: assessmentStatus } = useQuery({
     queryKey: ['/api/assessment/systems', systemId, 'status'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/assessment/systems/${systemId}/status`);
-      if (!response.ok) return null;
-      return response.json();
+      try {
+        const response = await apiRequest('GET', `/api/assessment/systems/${systemId}/status`);
+        return response.json();
+      } catch {
+        return null;
+      }
     },
     enabled: !!systemId,
     refetchInterval: 5000 // Check every 5 seconds
@@ -241,9 +249,12 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
   const { data: systemControls = [] } = useQuery({
     queryKey: ['/api/systems', systemId, 'controls'],
     queryFn: async () => {
-      const response = await authenticatedFetch(`/api/systems/${systemId}/controls`);
-      if (!response.ok) return [];
-      return response.json();
+      try {
+        const response = await apiRequest('GET', `/api/systems/${systemId}/controls`);
+        return response.json();
+      } catch {
+        return [];
+      }
     },
     enabled: !!systemId,
   });
@@ -258,9 +269,7 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
   // Start new assessment
   const handleStartAssessment = async () => {
     try {
-      const response = await fetch(`/api/assessment/systems/${systemId}/assess`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await apiRequest('POST', `/api/assessment/systems/${systemId}/assess`, {
         body: JSON.stringify({
           assessmentMode: 'automated',
           includeInformationalFindings: false,
@@ -514,13 +523,21 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
       </Card>
 
       {/* Assessment Actions */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button 
           onClick={handleShowAssessmentConfig} 
           data-testid="button-run-assessment"
         >
           <Settings className="h-4 w-4 mr-2" />
           Configure & Run Assessment
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={() => setShowScanUpload(true)}
+          data-testid="button-upload-scan"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Upload Scan Results
         </Button>
         <Button 
           variant="outline" 
@@ -677,7 +694,6 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
                           <Button 
                             size="sm" 
                             variant="ghost"
-                            onClick={() => handleViewFinding(finding)}
                             data-testid={`button-view-finding-${finding.id}`}
                           >
                             <Eye className="h-3 w-3" />
@@ -701,11 +717,148 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Shield className="mx-auto h-12 w-12 mb-4" />
-                <p>Control assessment details will be displayed here.</p>
-                <p className="text-sm">Integration with controls data in progress.</p>
-              </div>
+              {systemControls && systemControls.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Control Status Summary */}
+                  <div className="grid grid-cols-4 gap-4 mb-6">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{systemControls.length}</div>
+                          <p className="text-sm text-muted-foreground">Total Controls</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">
+                            {systemControls.filter((c: any) => c.status === 'compliant' || c.status === 'implemented').length}
+                          </div>
+                          <p className="text-sm text-muted-foreground">Implemented</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-yellow-600">
+                            {systemControls.filter((c: any) => c.status === 'partial' || c.status === 'partially_implemented').length}
+                          </div>
+                          <p className="text-sm text-muted-foreground">Partially Implemented</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-red-600">
+                            {systemControls.filter((c: any) => c.status === 'non_compliant' || c.status === 'not_implemented').length}
+                          </div>
+                          <p className="text-sm text-muted-foreground">Not Implemented</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Control Details Table */}
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Control ID</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Family</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Evidence</TableHead>
+                          <TableHead>STIG Mappings</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {systemControls.map((control: any) => (
+                          <TableRow key={control.controlId}>
+                            <TableCell className="font-medium">
+                              {control.controlId}
+                            </TableCell>
+                            <TableCell className="max-w-[300px]">
+                              <div className="truncate" title={control.title}>
+                                {control.title}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{control.family}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  control.status === 'compliant' || control.status === 'implemented' 
+                                    ? 'default' 
+                                    : control.status === 'partial' || control.status === 'partially_implemented'
+                                    ? 'secondary'
+                                    : 'destructive'
+                                }
+                              >
+                                {control.status.replace(/_/g, ' ')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <FileText className="h-4 w-4" />
+                                <span className="text-sm">{control.evidenceCount || 0}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Shield className="h-4 w-4" />
+                                <span className="text-sm">{control.stigMappingCount || 0}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* If there are findings associated with controls */}
+                  {findings.some((f: Finding) => f.controlId) && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Control-Related Findings</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {findings.filter((f: Finding) => f.controlId).slice(0, 5).map((finding: Finding) => (
+                            <div key={finding.id} className="flex items-center justify-between p-2 border rounded">
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant={finding.severity === 'critical' || finding.severity === 'high' ? 'destructive' : 'default'}
+                                >
+                                  {finding.severity}
+                                </Badge>
+                                <span className="text-sm">{finding.title}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                Control: {finding.controlId}
+                              </span>
+                            </div>
+                          ))}
+                          {findings.filter((f: Finding) => f.controlId).length > 5 && (
+                            <p className="text-sm text-muted-foreground text-center mt-2">
+                              And {findings.filter((f: Finding) => f.controlId).length - 5} more...
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Shield className="mx-auto h-12 w-12 mb-4" />
+                  <p>No control assessments available.</p>
+                  <p className="text-sm">Run an assessment to see control compliance data.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -719,11 +872,126 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="mx-auto h-12 w-12 mb-4" />
-                <p>STIG assessment results will be displayed here.</p>
-                <p className="text-sm">Integration with STIG data in progress.</p>
-              </div>
+              {assessmentResults ? (
+                <div className="space-y-6">
+                  {/* STIG Compliance Summary */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-green-600">
+                            {assessmentResults.stigCompliance?.stigCompliancePercentage || 0}%
+                          </div>
+                          <p className="text-sm text-muted-foreground">STIG Compliance</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold">
+                            {assessmentResults.stigCompliance?.totalRules || 0}
+                          </div>
+                          <p className="text-sm text-muted-foreground">Total STIG Rules</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-red-600">
+                            {assessmentResults.stigCompliance?.nonCompliantRules || 0}
+                          </div>
+                          <p className="text-sm text-muted-foreground">Non-Compliant Rules</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Rule Status Breakdown */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Rule Status Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Compliant</span>
+                        <div className="flex items-center gap-2">
+                          <Progress 
+                            value={assessmentResults.stigCompliance ? 
+                              (assessmentResults.stigCompliance.compliantRules / assessmentResults.stigCompliance.totalRules) * 100 : 0
+                            } 
+                            className="w-[200px]" 
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {assessmentResults.stigCompliance?.compliantRules || 0}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Non-Compliant</span>
+                        <div className="flex items-center gap-2">
+                          <Progress 
+                            value={assessmentResults.stigCompliance ? 
+                              (assessmentResults.stigCompliance.nonCompliantRules / assessmentResults.stigCompliance.totalRules) * 100 : 0
+                            } 
+                            className="w-[200px]" 
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {assessmentResults.stigCompliance?.nonCompliantRules || 0}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Not Reviewed</span>
+                        <div className="flex items-center gap-2">
+                          <Progress 
+                            value={assessmentResults.stigCompliance ? 
+                              (assessmentResults.stigCompliance.notReviewedRules / assessmentResults.stigCompliance.totalRules) * 100 : 0
+                            } 
+                            className="w-[200px]" 
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {assessmentResults.stigCompliance?.notReviewedRules || 0}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Associated Finding */}
+                  {findings.length > 0 && findings.some(f => f.stigRuleId) && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">STIG-Related Findings</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {findings.filter(f => f.stigRuleId).map(finding => (
+                            <div key={finding.id} className="flex items-center justify-between p-2 border rounded">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={finding.severity === 'high' ? 'destructive' : 'default'}>
+                                  {finding.severity}
+                                </Badge>
+                                <span className="text-sm">{finding.title}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                Rule: {finding.stigRuleId}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="mx-auto h-12 w-12 mb-4" />
+                  <p>No STIG assessment results available.</p>
+                  <p className="text-sm">Run an assessment to see STIG compliance data.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -799,109 +1067,17 @@ export function AssessmentDashboard({ systemId }: AssessmentDashboardProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Finding Detail Dialog */}
-      <Dialog open={showFindingDetail} onOpenChange={handleCloseFindingDetail}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              Finding Details
-              {selectedFinding && (
-                <Badge variant={getSeverityBadgeVariant(selectedFinding.severity)}>
-                  {selectedFinding.severity}
-                </Badge>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedFinding && (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">Title</h4>
-                  <p className="text-base font-semibold">{selectedFinding.title}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Severity</h4>
-                    <Badge variant={getSeverityBadgeVariant(selectedFinding.severity)} className="flex items-center gap-1 w-fit">
-                      {getSeverityIcon(selectedFinding.severity)}
-                      {selectedFinding.severity}
-                    </Badge>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Status</h4>
-                    <Badge variant={getStatusBadgeVariant(selectedFinding.status)}>
-                      {selectedFinding.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                </div>
-
-                {(selectedFinding.stigRuleId || selectedFinding.controlId) && (
-                  <div className="grid grid-cols-2 gap-4">
-                    {selectedFinding.stigRuleId && (
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground mb-1">STIG Rule ID</h4>
-                        <Badge variant="outline" className="font-mono">
-                          {selectedFinding.stigRuleId}
-                        </Badge>
-                      </div>
-                    )}
-                    {selectedFinding.controlId && (
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Control ID</h4>
-                        <Badge variant="outline" className="font-mono">
-                          {selectedFinding.controlId}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">Description</h4>
-                  <p className="text-sm leading-relaxed bg-muted p-3 rounded-md">
-                    {selectedFinding.description}
-                  </p>
-                </div>
-
-                {selectedFinding.remediation && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Remediation</h4>
-                    <div className="text-sm leading-relaxed bg-muted p-3 rounded-md">
-                      <pre className="whitespace-pre-wrap font-sans">{selectedFinding.remediation}</pre>
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-4 border-t">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>Created: {new Date(selectedFinding.createdAt).toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                    <FileText className="h-3 w-3" />
-                    <span>Finding ID: <code className="text-xs">{selectedFinding.id}</code></span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={handleCloseFindingDetail}>
-                  Close
-                </Button>
-                <Button variant="default" onClick={() => {
-                  toast({
-                    title: "Feature Coming Soon",
-                    description: "Finding management actions will be available in the next update."
-                  });
-                }}>
-                  Update Status
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Vulnerability Scan Upload Dialog */}
+      <VulnerabilityScanUpload
+        systemId={systemId}
+        open={showScanUpload}
+        onOpenChange={setShowScanUpload}
+        onUploadComplete={() => {
+          // Refresh findings and assessment data
+          queryClient.invalidateQueries({ queryKey: ['/api/ingestion/systems', systemId, 'findings'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/assessment/systems', systemId] });
+        }}
+      />
     </div>
   );
 }

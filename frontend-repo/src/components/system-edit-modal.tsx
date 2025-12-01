@@ -10,9 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { type InsertSystem, type System } from "@shared/schema";
+import { insertSystemSchema, type InsertSystem, type System } from "@/types/schema";
 import { Loader2 } from "lucide-react";
-import { z } from "zod";
 
 interface SystemEditModalProps {
   system: System | null;
@@ -21,16 +20,15 @@ interface SystemEditModalProps {
 }
 
 // Form schema for editing - make all fields optional except required ones
-const editFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  category: z.enum(["Major Application", "General Support System"]),
-  impactLevel: z.enum(["High", "Moderate", "Low"]).optional(),
-  complianceStatus: z.enum(["compliant", "non-compliant", "in-progress", "not-started", "not-assessed"]).optional(),
-  owner: z.string().optional(),
+const editFormSchema = insertSystemSchema.partial().extend({
+  name: insertSystemSchema.shape.name, // Keep name required
+  category: insertSystemSchema.shape.category, // Keep category required
 });
 
-type EditFormData = z.infer<typeof editFormSchema>;
+type EditFormData = Partial<InsertSystem> & {
+  name: string;
+  category: string;
+};
 
 export function SystemEditModal({ system, open, onOpenChange }: SystemEditModalProps) {
   const { toast } = useToast();

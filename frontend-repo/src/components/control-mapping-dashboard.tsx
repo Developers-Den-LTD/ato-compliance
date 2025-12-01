@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,8 +74,7 @@ export function ControlMappingDashboard() {
       if (filters.minConfidence) queryParams.append('minConfidence', filters.minConfidence.toString());
       if (filters.limit) queryParams.append('limit', filters.limit.toString());
 
-      const response = await fetch(`/api/v1/control-mapping/mappings?${queryParams}`);
-      if (!response.ok) throw new Error('Failed to load mappings');
+      const response = await apiRequest('GET', `/api/v1/control-mapping/mappings?${queryParams}`);
       
       const data = await response.json();
       setMappings(data.data.mappings);
@@ -89,8 +89,7 @@ export function ControlMappingDashboard() {
     if (!filters.documentId) return;
     
     try {
-      const response = await fetch(`/api/v1/control-mapping/coverage/${filters.documentId}`);
-      if (!response.ok) throw new Error('Failed to load coverage report');
+      const response = await apiRequest('GET', `/api/v1/control-mapping/coverage/${filters.documentId}`);
       
       const data = await response.json();
       setCoverageReport(data.data);
@@ -106,19 +105,12 @@ export function ControlMappingDashboard() {
     setError(null);
     
     try {
-      const response = await fetch('/api/v1/control-mapping/map-document', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: filters.documentId,
-          framework: filters.framework || 'NIST-800-53',
-          minConfidence: filters.minConfidence,
-          includeRelationships: true
-        })
+      const response = await apiRequest('POST', '/api/v1/control-mapping/map-document', {
+        documentId: filters.documentId,
+        framework: filters.framework || 'NIST-800-53',
+        minConfidence: filters.minConfidence,
+        includeRelationships: true
       });
-      
-      if (!response.ok) throw new Error('Failed to map document');
-      
       const data = await response.json();
       setMappings(data.data.mappings);
       setRelationships(data.data.relationships);
@@ -134,16 +126,10 @@ export function ControlMappingDashboard() {
 
   const updateMappingConfidence = async (mappingId: string, newConfidence: number) => {
     try {
-      const response = await fetch(`/api/v1/control-mapping/mapping/${mappingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          newConfidence,
-          reason: 'Manual adjustment'
-        })
+      await apiRequest('PUT', `/api/v1/control-mapping/mapping/${mappingId}`, {
+        newConfidence,
+        reason: 'Manual adjustment'
       });
-      
-      if (!response.ok) throw new Error('Failed to update mapping');
       
       // Reload mappings
       await loadMappings();
@@ -156,11 +142,7 @@ export function ControlMappingDashboard() {
     if (!confirm('Are you sure you want to remove this mapping?')) return;
     
     try {
-      const response = await fetch(`/api/v1/control-mapping/mapping/${mappingId}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) throw new Error('Failed to remove mapping');
+      await apiRequest('DELETE', `/api/v1/control-mapping/mapping/${mappingId}`);
       
       // Reload mappings
       await loadMappings();
