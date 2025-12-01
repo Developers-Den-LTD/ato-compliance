@@ -372,7 +372,7 @@ export class EnhancedGenerationService extends EventEmitter {
     await new Promise(resolve => setTimeout(resolve, 5000));
     
     // Retry generation
-    await this.generateDocumentTypeEnhanced(jobId, docType, systemData, request);
+    await this.generateDocumentTypeEnhanced(jobId, docType as DocumentType, systemData, request);
   }
 
   /**

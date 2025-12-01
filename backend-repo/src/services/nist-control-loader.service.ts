@@ -989,8 +989,6 @@ export class NISTControlLoaderService {
           enhancement: controlData.enhancement,
           supplementalGuidance: controlData.supplementalGuidance,
           requirements: controlData.requirements,
-          objective: controlData.objective,
-          status: controlData.status,
           createdAt: new Date()
         };
 

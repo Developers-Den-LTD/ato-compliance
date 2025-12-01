@@ -19,6 +19,9 @@ export interface ChunkMetadata {
   word_count?: number;
   entities?: string[];
   confidence?: number;
+  previous_chunk_title?: string;
+  next_chunk_title?: string;
+  chunk_sequence?: string;
 }
 
 export type ChunkType = 'header' | 'paragraph' | 'list' | 'table' | 'policy' | 'procedure' | 'code' | 'other';

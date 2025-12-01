@@ -6,8 +6,14 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { enhancedGenerationService } from '../services/enhanced-generation-service';
 import { generationRecoveryService } from '../services/generation-recovery';
-import { validateAuth, checkSystemAccess, type AuthenticatedRequest } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/auth.types';
 import { storage } from '../storage';
+
+const checkSystemAccess = async (userId: string, systemId: string): Promise<boolean> => {
+  const system = await storage.getSystem(systemId);
+  return !!system;
+};
 
 const router = Router();
 
@@ -42,12 +48,12 @@ const enhancedGenerationRequestSchema = z.object({
  * POST /api/generation/enhanced/start
  * Start enhanced generation with robust error handling
  */
-router.post('/enhanced/start', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/enhanced/start', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const request = enhancedGenerationRequestSchema.parse(req.body);
+    const request = enhancedGenerationRequestSchema.parse(req.body) as any;
     
     // Access check
-    const hasSystemAccess = await checkSystemAccess(req.user!.id, request.systemId, storage);
+    const hasSystemAccess = await checkSystemAccess(req.user!.userId, request.systemId);
     if (!hasSystemAccess) {
       return res.status(403).json({
         error: 'Access denied - insufficient permissions for this system'
@@ -106,7 +112,7 @@ router.post('/enhanced/start', validateAuth, async (req: AuthenticatedRequest, r
  * GET /api/generation/enhanced/stream/:jobId
  * Server-sent events for real-time progress
  */
-router.get('/enhanced/stream/:jobId', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/enhanced/stream/:jobId', authenticate, async (req: AuthRequest, res: Response) => {
   const { jobId } = req.params;
 
   try {
@@ -121,7 +127,7 @@ router.get('/enhanced/stream/:jobId', validateAuth, async (req: AuthenticatedReq
     }
 
     if (job.systemId) {
-      const hasAccess = await checkSystemAccess(req.user!.id, job.systemId, storage);
+      const hasAccess = await checkSystemAccess(req.user!.userId, job.systemId);
       if (!hasAccess) {
         return res.status(403).json({ error: 'Access denied' });
       }
@@ -205,7 +211,7 @@ router.get('/enhanced/stream/:jobId', validateAuth, async (req: AuthenticatedReq
  * POST /api/generation/enhanced/recover/:jobId
  * Attempt to recover failed generation job
  */
-router.post('/enhanced/recover/:jobId', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/enhanced/recover/:jobId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { jobId } = req.params;
     const jobIdSchema = z.string().uuid();
@@ -218,7 +224,7 @@ router.post('/enhanced/recover/:jobId', validateAuth, async (req: AuthenticatedR
     }
 
     if (job.systemId) {
-      const hasAccess = await checkSystemAccess(req.user!.id, job.systemId, storage);
+      const hasAccess = await checkSystemAccess(req.user!.userId, job.systemId);
       if (!hasAccess) {
         return res.status(403).json({ error: 'Access denied' });
       }
@@ -256,7 +262,7 @@ router.post('/enhanced/recover/:jobId', validateAuth, async (req: AuthenticatedR
  * DELETE /api/generation/enhanced/cancel/:jobId
  * Cancel running generation job
  */
-router.delete('/enhanced/cancel/:jobId', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/enhanced/cancel/:jobId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { jobId } = req.params;
     const validatedJobId = z.string().uuid().parse(jobId);
@@ -268,7 +274,7 @@ router.delete('/enhanced/cancel/:jobId', validateAuth, async (req: Authenticated
     }
 
     if (job.systemId) {
-      const hasAccess = await checkSystemAccess(req.user!.id, job.systemId, storage);
+      const hasAccess = await checkSystemAccess(req.user!.userId, job.systemId);
       if (!hasAccess) {
         return res.status(403).json({ error: 'Access denied' });
       }
@@ -306,7 +312,7 @@ router.delete('/enhanced/cancel/:jobId', validateAuth, async (req: Authenticated
  * GET /api/generation/enhanced/checkpoints/:jobId
  * Get recovery checkpoints for a job
  */
-router.get('/enhanced/checkpoints/:jobId', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/enhanced/checkpoints/:jobId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { jobId } = req.params;
     const validatedJobId = z.string().uuid().parse(jobId);
@@ -318,7 +324,7 @@ router.get('/enhanced/checkpoints/:jobId', validateAuth, async (req: Authenticat
     }
 
     if (job.systemId) {
-      const hasAccess = await checkSystemAccess(req.user!.id, job.systemId, storage);
+      const hasAccess = await checkSystemAccess(req.user!.userId, job.systemId);
       if (!hasAccess) {
         return res.status(403).json({ error: 'Access denied' });
       }
@@ -402,3 +408,6 @@ function isRecoverableError(error: any): boolean {
 }
 
 export default router;
+
+
+

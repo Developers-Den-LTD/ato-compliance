@@ -295,11 +295,13 @@ export class TemplateGenerationService {
       for (const systemControl of applicableControls) {
         const control = await storage.getControl(systemControl.controlId);
         if (control) {
-          const narrative = await narrativeGenerationService.generateNarrative({
-            systemId,
-            controlId: control.id,
+          const narrative = await narrativeGenerationService.generateContextAwareNarrative({
+            control,
+            system: await storage.getSystem(systemId),
+            evidence: await storage.getEvidenceByControl(control.id),
+            artifacts: [],
             useAI: true
-          });
+          } as any);
 
           systemData[`control_${control.id}_narrative`] = narrative.narrative;
           systemData[`control_${control.id}_status`] = systemControl.status;

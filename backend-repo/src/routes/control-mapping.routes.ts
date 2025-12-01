@@ -49,7 +49,7 @@ router.post('/map-document', async (req, res) => {
       });
     }
 
-    const result = await controlMappingService.mapDocumentToControls(validation.data);
+    const result = await controlMappingService.mapDocumentToControls(validation.data as any);
     
     res.json({
       success: true,

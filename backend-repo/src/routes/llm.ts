@@ -3,10 +3,11 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { validateAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/auth.types';
 import { storage } from '../storage';
 import { modelRouter } from '../llm/model-router';
-import { insertProviderSettingsSchema } from "../schema";
+import { InsertProviderSettings } from "../schema";
 
 const router = Router();
 
@@ -44,7 +45,7 @@ const testProvidersSchema = z.object({
  * GET /api/llm/providers
  * Get all available providers with their current settings, available models, and connectivity status
  */
-router.get('/providers', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/providers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     console.log('Fetching LLM provider configurations and status');
     
@@ -127,7 +128,7 @@ router.get('/providers', validateAuth, async (req: AuthenticatedRequest, res: Re
  * PUT /api/llm/providers/:provider
  * Update a specific provider's configuration (enabled status, priority, custom endpoint, model settings)
  */
-router.put('/providers/:provider', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.put('/providers/:provider', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Validate provider parameter
     const providerSchema = z.enum(['openrouter', 'ollama']);
@@ -256,7 +257,7 @@ router.put('/providers/:provider', validateAuth, async (req: AuthenticatedReques
  * POST /api/llm/providers/test
  * Test connectivity to all enabled providers and return status
  */
-router.post('/providers/test', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/providers/test', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Validate request body
     const testConfig = testProvidersSchema.parse(req.body);
@@ -389,7 +390,7 @@ router.post('/providers/test', validateAuth, async (req: AuthenticatedRequest, r
  * GET /api/llm/models
  * Get available models from all enabled providers
  */
-router.get('/models', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/models', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     console.log('Fetching available models from all providers');
     
@@ -544,7 +545,7 @@ function getModelMaxTokens(provider: string, modelId: string): number {
  * POST /api/llm/generate
  * Generate text using the best available provider
  */
-router.post('/generate', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/generate', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { messages, maxTokens, temperature, model } = req.body;
     
@@ -581,3 +582,4 @@ router.post('/generate', validateAuth, async (req: AuthenticatedRequest, res: Re
 });
 
 export default router;
+

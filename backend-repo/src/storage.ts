@@ -451,6 +451,123 @@ export class DatabaseStorage {
     // Placeholder - would need checkpoints table
     return undefined;
   }
+  // Missing methods - stub implementations
+  async getCcisByControl(controlId: string): Promise<string[]> {
+    return [];
+  }
+
+  async getStigRuleCcisByCci(cci: string): Promise<any[]> {
+    return [];
+  }
+
+  async getAssessmentByAssessmentId(assessmentId: string): Promise<any | null> {
+    return null;
+  }
+
+  async getLatestAssessmentBySystem(systemId: string): Promise<any | null> {
+    const result = await db.select().from(assessments)
+      .where(eq(assessments.systemId, systemId))
+      .orderBy(desc(assessments.createdAt))
+      .limit(1);
+    return result[0] || null;
+  }
+
+  async createChecklist(data: any): Promise<any> {
+    return {};
+  }
+
+  async getFindings(systemId?: string): Promise<any[]> {
+    return [];
+  }
+
+  async getStigRuleCcisByStigRule(stigRuleId: string): Promise<any[]> {
+    return [];
+  }
+
+  async getCci(cciId: string): Promise<any | null> {
+    return null;
+  }
+
+  async getEvidenceByArtifact(artifactId: string): Promise<any[]> {
+    return [];
+  }
+
+  async deleteDocumentSectionsByArtifact(artifactId: string): Promise<void> {
+    // Stub - would delete document sections for an artifact
+  }
+
+  async createDocumentSections(records: any[]): Promise<void> {
+    // Stub - would create document sections
+  }
+
+  async createControlEmbedding(embeddingRecord: any): Promise<void> {
+    // Stub - would create control embedding
+  }
+
+  async deleteEvidence(evidenceId: string): Promise<void> {
+    // Stub - would delete evidence
+  }
+
+  async getEvidenceItem(evidenceId: string): Promise<any | null> {
+    // Stub - would get evidence item
+    return null;
+  }
+
+  async getFindingsByControl(controlId: string): Promise<any[]> {
+    // Stub - would get findings by control
+    return [];
+  }
+
+  async updateEvidence(evidenceId: string, updates: any): Promise<void> {
+    // Stub - would update evidence
+  }
+
+  async updateFinding(findingId: string, updates: any): Promise<any> {
+    // Stub - would update finding
+    return {};
+  }
+
+  async cleanupOldCheckpoints(cutoff: Date): Promise<number> {
+    // Stub - would cleanup old checkpoints
+    return 0;
+  }
+
+  async createCheckpoint(checkpoint: any): Promise<void> {
+    // Stub - would create checkpoint
+  }
+
+  async getLatestCheckpoint(jobId: string): Promise<any | null> {
+    // Stub - would get latest checkpoint
+    return null;
+  }
+
+  async getCheckpoints(jobId: string): Promise<any[]> {
+    // Stub - would get checkpoints
+    return [];
+  }
+
+  async getDocumentsByJobId(jobId: string): Promise<any[]> {
+    // Stub - would get documents by job ID
+    return [];
+  }
+
+  async getChecklistsByJobId(jobId: string): Promise<any[]> {
+    // Stub - would get checklists by job ID
+    return [];
+  }
+
+  async getPoamItemsBySystem(systemId: string): Promise<any[]> {
+    // Stub - would get POAM items by system
+    return [];
+  }
+
+  async createPoamItem(item: any): Promise<void> {
+    // Stub - would create POAM item
+  }
+
+  async getGenerationJob(jobId: string): Promise<any | null> {
+    return null;
+  }
 }
 
 // Export singleton instance

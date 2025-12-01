@@ -55,7 +55,7 @@ export class ContextEnrichmentService {
       console.log(`Enriching context for control ${controlId}`);
 
       // Get control definition
-      const control = await db.query.controls.findFirst({
+      const control = await (db.query as any).controls.findFirst({
         where: and(
           eq(controls.id, controlId),
           eq(controls.framework, controlFramework)
@@ -173,7 +173,7 @@ export class ContextEnrichmentService {
     maxControls: number
   ): Promise<Array<{ controlId: string; relationshipType: string; strength: number }>> {
     try {
-      const relationships = await db.query.controlRelationships.findMany({
+      const relationships = await (db.query as any).controlRelationships.findMany({
         where: and(
           eq(controlRelationships.framework, controlFramework),
           sql`(${controlRelationships.sourceControlId} = ${controlId} OR ${controlRelationships.targetControlId} = ${controlId})`
@@ -227,7 +227,7 @@ export class ContextEnrichmentService {
     // Get document titles
     for (const [documentId, source] of sourceMap) {
       try {
-        const document = await db.query.documents.findFirst({
+        const document = await (db.query as any).documents.findFirst({
           where: eq(documents.id, documentId)
         });
         if (document) {

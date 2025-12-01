@@ -4,12 +4,12 @@
 
 import { Router } from 'express';
 import { simpleBaselineAssignmentService } from '../services/simple-baseline-assignment.service';
-import { validateAuth } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // Apply authentication to all routes
-router.use(validateAuth);
+router.use(authenticate);
 
 /**
  * POST /api/simple-baseline-assignment/assign

@@ -1,11 +1,12 @@
 import { db } from '../db';
 import { controlMappings, controlRelationships, mappingCriteria } from '../schema';
 import { eq, and, gte, desc, sql } from 'drizzle-orm';
+import { storage } from '../storage';
 import { ConfidenceScoringService } from './confidence-scoring.service';
 import { ControlRelationshipService } from './control-relationship.service';
 import { MappingPersistenceService } from './mapping-persistence.service';
 import { DocumentExtractionService } from './document-extraction.service';
-import { SemanticSearchService } from './semantic-search.service';
+import { SemanticSearchEngine } from './semantic-search';
 
 export interface ControlMapping {
   id: string;
@@ -48,14 +49,14 @@ export class ControlMappingService {
   private relationshipService: ControlRelationshipService;
   private persistenceService: MappingPersistenceService;
   private documentService: DocumentExtractionService;
-  private semanticSearch: SemanticSearchService;
+  private semanticSearch: SemanticSearchEngine;
 
   constructor() {
     this.confidenceScoring = new ConfidenceScoringService();
     this.relationshipService = new ControlRelationshipService();
     this.persistenceService = new MappingPersistenceService();
     this.documentService = new DocumentExtractionService();
-    this.semanticSearch = new SemanticSearchService();
+    this.semanticSearch = new SemanticSearchEngine();
   }
 
   /**
@@ -122,16 +123,16 @@ export class ControlMappingService {
    */
   async getDocumentMappings(documentId: string, minConfidence?: number): Promise<ControlMapping[]> {
     try {
-      let query = db.select().from(controlMappings).where(eq(controlMappings.documentId, documentId));
+      const conditions = [eq(controlMappings.documentId, documentId)];
       
       if (minConfidence) {
-        query = query.where(and(
-          eq(controlMappings.documentId, documentId),
-          gte(controlMappings.confidenceScore, minConfidence)
-        ));
+        conditions.push(gte(controlMappings.confidenceScore, minConfidence));
       }
 
-      const results = await query.orderBy(desc(controlMappings.confidenceScore));
+      const results = await db.select()
+        .from(controlMappings)
+        .where(and(...conditions))
+        .orderBy(desc(controlMappings.confidenceScore));
       
       return results.map(this.mapDbRowToControlMapping);
     } catch (error) {
@@ -247,9 +248,11 @@ export class ControlMappingService {
 
     for (const control of controls) {
       try {
-        // Get control embedding for similarity comparison
-        const controlEmbedding = await this.semanticSearch.getControlEmbedding(control.id);
-        if (!controlEmbedding) continue;
+        // Get control embedding for similarity comparison - use storage directly
+        const controlEmbeddingData = await storage.getControlEmbedding(control.id);
+        if (!controlEmbeddingData) continue;
+        const controlEmbedding = controlEmbeddingData.combinedEmbedding || [];
+        if (!controlEmbedding || controlEmbedding.length === 0) continue;
 
         let bestMatch = { score: 0, criteria: {} };
         

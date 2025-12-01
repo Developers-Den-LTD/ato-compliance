@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { validateAuth } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.middleware';
 import { sspGenerationService } from '../services/ssp-generation.service.js';
 import { storage } from '../storage.js';
 
 const router = Router();
 
 // Generate System Security Plan
-router.post('/ssp/generate', validateAuth, async (req, res) => {
+router.post('/ssp/generate', authenticate, async (req, res) => {
   try {
     const { 
       systemId, 
@@ -57,7 +57,7 @@ router.post('/ssp/generate', validateAuth, async (req, res) => {
 });
 
 // Preview SSP sections
-router.post('/ssp/preview', validateAuth, async (req, res) => {
+router.post('/ssp/preview', authenticate, async (req, res) => {
   try {
     const { systemId, sections = ['executive_summary'] } = req.body;
 
@@ -123,7 +123,7 @@ is ready for Authority to Operate (ATO) consideration.`;
 });
 
 // Get document generation status
-router.get('/status/:systemId', validateAuth, async (req, res) => {
+router.get('/status/:systemId', authenticate, async (req, res) => {
   try {
     const { systemId } = req.params;
 
@@ -172,7 +172,7 @@ router.get('/status/:systemId', validateAuth, async (req, res) => {
 });
 
 // Get document templates
-router.get('/templates', validateAuth, async (req, res) => {
+router.get('/templates', authenticate, async (req, res) => {
   try {
     res.json({
       templates: [
@@ -240,3 +240,4 @@ function getReadinessRecommendations(
 }
 
 export default router;
+

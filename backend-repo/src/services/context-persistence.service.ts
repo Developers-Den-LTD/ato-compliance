@@ -42,7 +42,7 @@ export class ContextPersistenceService {
    */
   async getAggregation(controlId: string, controlFramework: string): Promise<EvidenceAggregation | null> {
     try {
-      const aggregation = await db.query.evidenceAggregations.findFirst({
+      const aggregation = await (db.query as any).evidenceAggregations.findFirst({
         where: and(
           eq(evidenceAggregations.controlId, controlId),
           eq(evidenceAggregations.controlFramework, controlFramework)
@@ -125,7 +125,7 @@ export class ContextPersistenceService {
         // For now, we'll just filter by controlId
       }
 
-      return await db.query.evidenceItems.findMany({
+      return await (db.query as any).evidenceItems.findMany({
         where: and(...whereConditions),
         orderBy: desc(evidenceItems.relevanceScore)
       });
@@ -140,7 +140,7 @@ export class ContextPersistenceService {
    */
   async getEvidenceItemsByDocument(documentId: string): Promise<EvidenceItem[]> {
     try {
-      return await db.query.evidenceItems.findMany({
+      return await (db.query as any).evidenceItems.findMany({
         where: eq(evidenceItems.documentId, documentId),
         orderBy: desc(evidenceItems.createdAt)
       });
@@ -208,7 +208,7 @@ export class ContextPersistenceService {
    */
   async getEvidenceRelationships(evidenceItemId: string): Promise<EvidenceRelationship[]> {
     try {
-      return await db.query.evidenceRelationships.findMany({
+      return await (db.query as any).evidenceRelationships.findMany({
         where: and(
           sql`(${evidenceRelationships.sourceEvidenceId} = ${evidenceItemId} OR ${evidenceRelationships.targetEvidenceId} = ${evidenceItemId})`
         ),
@@ -254,7 +254,7 @@ export class ContextPersistenceService {
    */
   async getContextVersions(controlId: string, controlFramework: string): Promise<ContextVersion[]> {
     try {
-      return await db.query.contextVersions.findMany({
+      return await (db.query as any).contextVersions.findMany({
         where: and(
           eq(contextVersions.controlId, controlId),
           eq(contextVersions.controlFramework, controlFramework)
@@ -272,7 +272,7 @@ export class ContextPersistenceService {
    */
   async getLatestContextVersion(controlId: string, controlFramework: string): Promise<ContextVersion | null> {
     try {
-      const version = await db.query.contextVersions.findFirst({
+      const version = await (db.query as any).contextVersions.findFirst({
         where: and(
           eq(contextVersions.controlId, controlId),
           eq(contextVersions.controlFramework, controlFramework)
@@ -292,7 +292,7 @@ export class ContextPersistenceService {
    */
   async getContextVersion(versionId: string): Promise<ContextVersion | null> {
     try {
-      return await db.query.contextVersions.findFirst({
+      return await (db.query as any).contextVersions.findFirst({
         where: eq(contextVersions.id, versionId)
       });
     } catch (error) {
@@ -363,7 +363,7 @@ export class ContextPersistenceService {
     maxQuality: number
   ): Promise<EvidenceItem[]> {
     try {
-      return await db.query.evidenceItems.findMany({
+      return await (db.query as any).evidenceItems.findMany({
         where: and(
           sql`${evidenceItems.qualityScore} >= ${minQuality}`,
           sql`${evidenceItems.qualityScore} <= ${maxQuality}`
@@ -381,7 +381,7 @@ export class ContextPersistenceService {
    */
   async getEvidenceItemsByType(evidenceType: string): Promise<EvidenceItem[]> {
     try {
-      return await db.query.evidenceItems.findMany({
+      return await (db.query as any).evidenceItems.findMany({
         where: eq(evidenceItems.evidenceType, evidenceType),
         orderBy: desc(evidenceItems.createdAt)
       });

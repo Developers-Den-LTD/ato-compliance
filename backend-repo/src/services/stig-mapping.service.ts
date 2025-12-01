@@ -316,6 +316,6 @@ export class StigMappingService {
         )
       );
 
-    return result.rowCount || 0;
+    return result.length || 0;
   }
 }

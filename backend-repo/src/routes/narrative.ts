@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateAuth } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.middleware';
 import { narrativeGenerationService } from '../services/narrative-generation.service.js';
 import { storage } from '../storage.js';
 import crypto from 'crypto';
@@ -20,7 +20,7 @@ const narrativeGenerationProgress = new Map<string, {
 }>();
 
 // Generate narratives for all controls in a system with progress tracking
-router.post('/systems/:systemId/narratives/generate', validateAuth, async (req, res) => {
+router.post('/systems/:systemId/narratives/generate', authenticate, async (req, res) => {
   try {
     const { systemId } = req.params;
     const { async: useAsync = false } = req.body || {};
@@ -115,7 +115,7 @@ async function generateNarrativesAsync(jobId: string, systemId: string) {
 }
 
 // Regenerate narrative for a specific control
-router.post('/systems/:systemId/controls/:controlId/narrative/regenerate', validateAuth, async (req, res) => {
+router.post('/systems/:systemId/controls/:controlId/narrative/regenerate', authenticate, async (req, res) => {
   try {
     const { systemId, controlId } = req.params;
     
@@ -146,7 +146,7 @@ router.post('/systems/:systemId/controls/:controlId/narrative/regenerate', valid
 });
 
 // Get control narrative
-router.get('/systems/:systemId/controls/:controlId/narrative', validateAuth, async (req, res) => {
+router.get('/systems/:systemId/controls/:controlId/narrative', authenticate, async (req, res) => {
   try {
     const { systemId, controlId } = req.params;
     
@@ -173,7 +173,7 @@ router.get('/systems/:systemId/controls/:controlId/narrative', validateAuth, asy
 });
 
 // Get narrative generation status
-router.get('/status/:jobId', validateAuth, async (req, res) => {
+router.get('/status/:jobId', authenticate, async (req, res) => {
   try {
     const { jobId } = req.params;
     
@@ -199,7 +199,7 @@ router.get('/status/:jobId', validateAuth, async (req, res) => {
 });
 
 // Get all narratives for a system
-router.get('/systems/:systemId/narratives', validateAuth, async (req, res) => {
+router.get('/systems/:systemId/narratives', authenticate, async (req, res) => {
   try {
     const { systemId } = req.params;
     
@@ -231,7 +231,7 @@ router.get('/systems/:systemId/narratives', validateAuth, async (req, res) => {
 });
 
 // Generate AI narrative for a specific control
-router.post('/generate', validateAuth, async (req, res) => {
+router.post('/generate', authenticate, async (req, res) => {
   try {
     const { systemId, controlId, customPrompt, includeGuidance } = req.body;
     
@@ -280,3 +280,4 @@ router.post('/generate', validateAuth, async (req, res) => {
 });
 
 export default router;
+

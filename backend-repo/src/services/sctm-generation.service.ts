@@ -161,7 +161,7 @@ export class SCTMGenerationService {
       // If specific template ID provided, use it
       if (request.templateId) {
         const template = await storage.getTemplate(request.templateId);
-        return template?.activeVersion || null;
+        return template ? await storage.getTemplateVersion(template.activeVersion) : null;
       }
 
       // Find default template for SCTM
@@ -170,7 +170,7 @@ export class SCTMGenerationService {
       
       if (activeTemplate) {
         const template = await storage.getTemplate(activeTemplate.id);
-        return template?.activeVersion || null;
+        return template ? await storage.getTemplateVersion(template.activeVersion) : null;
       }
 
       return null;

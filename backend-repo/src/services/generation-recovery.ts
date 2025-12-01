@@ -3,7 +3,8 @@
 // Part of Epic 9 - Document Intelligence Pipeline
 
 import { storage } from '../storage';
-import type { GenerationJob, GenerationRequest } from './generation-service';
+import type { GenerationJob } from '../schema';
+import type { GenerationRequest } from './generation-service';
 
 export interface RecoveryCheckpoint {
   id: string;

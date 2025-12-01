@@ -56,7 +56,7 @@ export class UserController {
         return res.status(400).json({ error: 'Invalid role. Must be "user" or "admin"' });
       }
 
-      const newUser = await userService.createUser(username, password, role || 'user');
+      const newUser = await userService.createUser({ username, password, role: role || 'user' });
 
       return res.status(201).json({ user: newUser });
     } catch (error) {

@@ -50,7 +50,7 @@ router.get('/stig/profiles', authenticateToken, async (req, res) => {
     };
     
     // Format for frontend with categories
-    const profiles = Array.isArray(profilesQuery) ? profilesQuery : (profilesQuery.rows || []);
+    const profiles = Array.isArray(profilesQuery) ? profilesQuery : [];
     let formattedProfiles = profiles.map((profile: any) => ({
       stig_id: profile.stig_id,
       stig_title: profile.stig_title || `STIG Profile ${profile.stig_id}`,
@@ -133,7 +133,7 @@ router.get('/stig/stats', authenticateToken, async (req, res) => {
       FROM ${stigRules}
     `);
     
-    const result = Array.isArray(stats) ? stats[0] : (stats.rows?.[0] || { total_profiles: 0, total_rules: 0, total_jsig_rules: 0 });
+    const result = Array.isArray(stats) ? stats[0] : { total_profiles: 0, total_rules: 0, total_jsig_rules: 0 };
     
     res.json({
       totalProfiles: Number(result.total_profiles || 0),

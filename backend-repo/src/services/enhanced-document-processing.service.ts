@@ -188,7 +188,6 @@ export class EnhancedDocumentProcessingService {
           const controlMappingService = new ControlMappingService();
           const mappingResult = await controlMappingService.mapDocumentToControls({
             documentId: artifact.id,
-            systemId: systemId,
             framework: 'NIST-800-53',
             minConfidence: 70,
             includeRelationships: true
@@ -432,11 +431,14 @@ export class EnhancedDocumentProcessingService {
             controlId: result.controlId,
             artifactId: artifact.id,
             type: 'document',
+            title: `Evidence for ${result.controlId}`,
             description: `Evidence from ${artifact.name} for control ${result.controlId}`,
             implementation: result.implementationSummary,
             assessorNotes: `Relevance Score: ${result.overallRelevance}%. Found ${result.relevantSections.length} relevant sections.`,
             status: result.overallRelevance > 70 ? 'satisfies' : 
-                   result.overallRelevance > 40 ? 'partially_satisfies' : 'does_not_satisfy'
+                   result.overallRelevance > 40 ? 'partially_satisfies' : 'does_not_satisfy',
+            metadata: { relevanceScore: result.overallRelevance },
+            findingId: null
           };
 
           const createdEvidence = await storage.createEvidence(evidence);
@@ -461,7 +463,7 @@ export class EnhancedDocumentProcessingService {
   ): Promise<void> {
     try {
       const updatedMetadata = {
-        ...artifact.metadata,
+        ...(typeof artifact.metadata === 'object' && artifact.metadata !== null ? artifact.metadata : {}),
         processingResults: {
           extractedContent: {
             wordCount: extractedContent.metadata.wordCount,

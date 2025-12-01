@@ -4,13 +4,13 @@
 
 import { Router } from 'express';
 import { ControlAssignmentService } from '../services/control-assignment.service';
-import { validateAuth } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 const controlAssignmentService = new ControlAssignmentService();
 
 // Apply authentication to all routes
-router.use(validateAuth);
+router.use(authenticate);
 
 /**
  * GET /api/control-assignment/options/:systemId
@@ -130,7 +130,7 @@ router.post('/simple-test', async (req, res) => {
       });
     }
     
-    const result = await simpleAssignmentService.assignSingleControl(systemId, controlId);
+    const result = await controlAssignmentService.assignControls({ systemId, controlIds: [controlId] } as any);
     
     res.json({
       success: result.success,

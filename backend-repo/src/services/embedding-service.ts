@@ -183,16 +183,8 @@ export class EmbeddingService {
       text += ' ' + control.description;
     }
     
-    // Add additional context if available
-    if (control.metadata && typeof control.metadata === 'object') {
-      const metadata = control.metadata as any;
-      if (metadata.requirement) {
-        text += ' ' + metadata.requirement;
-      }
-      if (metadata.objective) {
-        text += ' ' + metadata.objective;
-      }
-    }
+    // Add additional context if available (metadata not in schema)
+    // Metadata would be added here if the control type supported it
     
     return text.trim();
   }
@@ -209,13 +201,8 @@ export class EmbeddingService {
       Array.isArray(control.baseline) ? control.baseline.join(' ') : (control.baseline || '')
     ];
 
-    // Add metadata context
-    if (control.metadata && typeof control.metadata === 'object') {
-      const metadata = control.metadata as any;
-      if (metadata.requirement) parts.push(String(metadata.requirement));
-      if (metadata.objective) parts.push(String(metadata.objective));
-      if (metadata.guidance) parts.push(String(metadata.guidance));
-    }
+    // Add metadata context (metadata not in schema)
+    // Metadata would be added here if the control type supported it
 
     return parts.filter(part => part && typeof part === 'string' && part.trim().length > 0).join(' ');
   }

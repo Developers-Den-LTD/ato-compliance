@@ -96,11 +96,7 @@ export class SystemService {
     // Create system
     const [system] = await db
       .insert(systems)
-      .values({
-        ...validatedData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
+      .values(validatedData as any)
       .returning();
 
     // Auto-assign baseline controls based on impact level
@@ -502,8 +498,9 @@ function calculateConfidence(summary: ArtifactSummary | null, documentCount: num
 
   // Simple confidence calculation based on evidence quality
   const totalArtifacts = summary.totalCount || 0;
-  const hasDescriptions = summary.artifactTypes && Array.isArray(summary.artifactTypes) 
-    ? summary.artifactTypes.some(t => t.count > 0) 
+  const artifactTypes = (summary as any).artifactTypes;
+  const hasDescriptions = artifactTypes && Array.isArray(artifactTypes) 
+    ? artifactTypes.some((t: any) => t.count > 0) 
     : false;
 
   if (totalArtifacts === 0) return 0;

@@ -275,7 +275,7 @@ export class ContextAggregationService {
     const gaps: string[] = [];
 
     // Get control definition to understand requirements
-    const control = await db.query.controls.findFirst({
+    const control = await (db.query as any).controls.findFirst({
       where: and(
         eq(controls.id, controlId),
         eq(controls.framework, controlFramework)
@@ -419,7 +419,7 @@ export class ContextAggregationService {
     userId?: string
   ): Promise<ContextVersion> {
     // Get next version number
-    const latestVersion = await db.query.contextVersions.findFirst({
+    const latestVersion = await (db.query as any).contextVersions.findFirst({
       where: and(
         eq(contextVersions.controlId, controlId),
         eq(contextVersions.controlFramework, controlFramework)

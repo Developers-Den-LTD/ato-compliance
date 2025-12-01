@@ -85,12 +85,13 @@ export class MappingPersistenceService {
         .where(and(...conditions))
         .orderBy(desc(controlMappings.confidenceScore));
 
-      if (query.limit) {
-        queryBuilder = queryBuilder.limit(query.limit);
-      }
-
-      if (query.offset) {
-        queryBuilder = queryBuilder.offset(query.offset);
+      // Apply limit and offset if provided
+      if (query.limit && query.offset) {
+        queryBuilder = queryBuilder.limit(query.limit).offset(query.offset) as any;
+      } else if (query.limit) {
+        queryBuilder = queryBuilder.limit(query.limit) as any;
+      } else if (query.offset) {
+        queryBuilder = queryBuilder.offset(query.offset) as any;
       }
 
       const results = await queryBuilder;

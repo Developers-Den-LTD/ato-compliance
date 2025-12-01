@@ -167,7 +167,7 @@ export class AuthenticationService {
     return jwt.sign(
       { userId, username, type: 'access' },
       this.accessTokenSecret,
-      { expiresIn: authConfig.jwt.accessTokenExpiry }
+      { expiresIn: authConfig.jwt.accessTokenExpiry } as jwt.SignOptions
     );
   }
 
@@ -178,7 +178,7 @@ export class AuthenticationService {
     return jwt.sign(
       { userId, type: 'refresh' },
       this.refreshTokenSecret,
-      { expiresIn: authConfig.jwt.refreshTokenExpiry }
+      { expiresIn: authConfig.jwt.refreshTokenExpiry } as jwt.SignOptions
     );
   }
 }

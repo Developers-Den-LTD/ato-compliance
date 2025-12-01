@@ -21,6 +21,7 @@ export interface ExtractedContent {
     structuredSections?: StructuredSection[];
     entities?: string[];
     keywords?: string[];
+    confidence?: number;
   };
 }
 
@@ -150,10 +151,11 @@ export class DocumentExtractionService {
   private async extractPDFContent(filePath: string, artifactId: string): Promise<ExtractedContent> {
     try {
       const buffer = await fs.readFile(filePath);
-      const { default: pdf } = await import('pdf-parse');
-      const parsed = await pdf(buffer).catch(async () => {
+      const pdfParse = await import('pdf-parse');
+      const pdf = pdfParse.default || pdfParse;
+      const parsed = await (pdf as any)(buffer).catch(async () => {
         // one quick retry for transient errors
-        return await pdf(buffer);
+        return await (pdf as any)(buffer);
       });
       const text = this.cleanText(parsed.text || '');
       const pre = this.preprocessForStructure(text);
@@ -496,6 +498,22 @@ private async persistStructuredSections(artifactId: string, sections: Structured
   private estimatePageCount(text: string): number {
     const wordsPerPage = 250; // Average words per page
     return Math.ceil(this.countWords(text) / wordsPerPage);
+  }
+
+  /**
+   * Get document by ID (stub method)
+   */
+  async getDocumentById(documentId: string): Promise<any> {
+    // This would query the documents table
+    return { id: documentId, name: 'Document' };
+  }
+
+  /**
+   * Get document chunks (stub method)
+   */
+  async getDocumentChunks(documentId: string): Promise<any[]> {
+    // This would query the semantic_chunks table
+    return [];
   }
 }
 

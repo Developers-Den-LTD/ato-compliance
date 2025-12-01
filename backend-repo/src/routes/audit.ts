@@ -2,12 +2,12 @@
 // Handles security audit logging and access tracking
 
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // GET /api/audit/log - Get audit log entries
-router.get('/log', authenticateToken, async (req, res) => {
+router.get('/log', authenticate, async (req, res) => {
   try {
     // Return empty audit log for now - implement actual logging later
     const auditEntries = [];
@@ -25,7 +25,7 @@ router.get('/log', authenticateToken, async (req, res) => {
 });
 
 // POST /api/audit/log - Add audit log entry
-router.post('/log', authenticateToken, async (req, res) => {
+router.post('/log', authenticate, async (req, res) => {
   try {
     // Log the audit entry (implement actual logging later)
     console.log('Audit entry:', req.body);

@@ -9,7 +9,8 @@ import { z } from 'zod';
 const CreateUserSchema = z.object({
   username: z.string().min(3).max(50),
   password: z.string().min(8),
-  email: z.string().email(),
+  email: z.string().email().optional(),
+  role: z.string().optional(),
 });
 
 const UpdateUserSchema = z.object({

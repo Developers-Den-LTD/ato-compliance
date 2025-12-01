@@ -4,8 +4,16 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { controlAssessmentService } from '../services/control-assessment.service';
-import { validateAuth, checkSystemAccess, type AuthenticatedRequest } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/auth.types';
 import { storage } from '../storage';
+import type { ControlAssessmentRequest, SystemAssessmentRequest } from '../services/control-assessment.service';
+
+// Helper function for system access check
+const checkSystemAccess = async (userId: string, systemId: string): Promise<boolean> => {
+  const system = await storage.getSystem(systemId);
+  return !!system;
+};
 
 const router = Router();
 
@@ -38,12 +46,19 @@ const reviewSubmissionSchema = z.object({
  * POST /api/assessment/control/assess
  * Assess a single control
  */
-router.post('/control/assess', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/control/assess', authenticate, async (req: AuthRequest, res) => {
   try {
-    const request = controlAssessmentSchema.parse(req.body);
+    const parsed = controlAssessmentSchema.parse(req.body);
+    const request: ControlAssessmentRequest = {
+      systemId: parsed.systemId,
+      controlId: parsed.controlId,
+      includeNarrative: parsed.includeNarrative,
+      assessorNotes: parsed.assessorNotes,
+      forceReassess: parsed.forceReassess
+    };
     
     // Check system access
-    const hasAccess = await checkSystemAccess(req.user!.id, request.systemId, storage);
+    const hasAccess = await checkSystemAccess(req.user!.userId, request.systemId);
     if (!hasAccess) {
       return res.status(403).json({
         error: 'Access denied - insufficient permissions for this system'
@@ -78,12 +93,19 @@ router.post('/control/assess', validateAuth, async (req: AuthenticatedRequest, r
  * POST /api/assessment/system/assess
  * Assess all controls for a system
  */
-router.post('/system/assess', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/system/assess', authenticate, async (req: AuthRequest, res) => {
   try {
-    const request = systemAssessmentSchema.parse(req.body);
+    const parsed = systemAssessmentSchema.parse(req.body);
+    const request: SystemAssessmentRequest = {
+      systemId: parsed.systemId,
+      controlIds: parsed.controlIds,
+      includeNarratives: parsed.includeNarratives,
+      assessmentMode: parsed.assessmentMode,
+      confidenceThreshold: parsed.confidenceThreshold
+    };
     
     // Check system access
-    const hasAccess = await checkSystemAccess(req.user!.id, request.systemId, storage);
+    const hasAccess = await checkSystemAccess(req.user!.userId, request.systemId);
     if (!hasAccess) {
       return res.status(403).json({
         error: 'Access denied - insufficient permissions for this system'
@@ -131,7 +153,7 @@ router.post('/system/assess', validateAuth, async (req: AuthenticatedRequest, re
  * GET /api/assessment/system/:systemId/summary
  * Get assessment summary for a system
  */
-router.get('/system/:systemId/summary', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.get('/system/:systemId/summary', authenticate, async (req: AuthRequest, res) => {
   try {
     const { systemId } = req.params;
     
@@ -143,7 +165,7 @@ router.get('/system/:systemId/summary', validateAuth, async (req: AuthenticatedR
     }
     
     // Check system access
-    const hasAccess = await checkSystemAccess(req.user!.id, systemId, storage);
+    const hasAccess = await checkSystemAccess(req.user!.userId, systemId);
     if (!hasAccess) {
       return res.status(403).json({
         error: 'Access denied - insufficient permissions for this system'
@@ -185,7 +207,7 @@ router.get('/system/:systemId/summary', validateAuth, async (req: AuthenticatedR
  * GET /api/assessment/control/:systemId/:controlId/status
  * Get detailed assessment status for a control
  */
-router.get('/control/:systemId/:controlId/status', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.get('/control/:systemId/:controlId/status', authenticate, async (req: AuthRequest, res) => {
   try {
     const { systemId, controlId } = req.params;
     
@@ -197,7 +219,7 @@ router.get('/control/:systemId/:controlId/status', validateAuth, async (req: Aut
     }
     
     // Check system access
-    const hasAccess = await checkSystemAccess(req.user!.id, systemId, storage);
+    const hasAccess = await checkSystemAccess(req.user!.userId, systemId);
     if (!hasAccess) {
       return res.status(403).json({
         error: 'Access denied - insufficient permissions for this system'
@@ -226,7 +248,7 @@ router.get('/control/:systemId/:controlId/status', validateAuth, async (req: Aut
     const stigRuleIds = new Set<string>();
     
     for (const cci of ccis) {
-      const mappings = await storage.getStigRuleCcisByCci(cci.cci);
+      const mappings = await storage.getStigRuleCcisByCci(cci);
       mappings.forEach(m => stigRuleIds.add(m.stigRuleId));
     }
     
@@ -267,12 +289,12 @@ router.get('/control/:systemId/:controlId/status', validateAuth, async (req: Aut
  * POST /api/assessment/review/submit
  * Submit human review for an assessment
  */
-router.post('/review/submit', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/review/submit', authenticate, async (req: AuthRequest, res) => {
   try {
     const review = reviewSubmissionSchema.parse(req.body);
     
     // Check system access
-    const hasAccess = await checkSystemAccess(req.user!.id, review.systemId, storage);
+    const hasAccess = await checkSystemAccess(req.user!.userId, review.systemId);
     if (!hasAccess) {
       return res.status(403).json({
         error: 'Access denied - insufficient permissions for this system'
@@ -315,7 +337,7 @@ router.post('/review/submit', validateAuth, async (req: AuthenticatedRequest, re
  * GET /api/assessment/pending-reviews/:systemId
  * Get controls pending human review
  */
-router.get('/pending-reviews/:systemId', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.get('/pending-reviews/:systemId', authenticate, async (req: AuthRequest, res) => {
   try {
     const { systemId } = req.params;
     
@@ -327,7 +349,7 @@ router.get('/pending-reviews/:systemId', validateAuth, async (req: Authenticated
     }
     
     // Check system access
-    const hasAccess = await checkSystemAccess(req.user!.id, systemId, storage);
+    const hasAccess = await checkSystemAccess(req.user!.userId, systemId);
     if (!hasAccess) {
       return res.status(403).json({
         error: 'Access denied - insufficient permissions for this system'
@@ -371,18 +393,27 @@ router.get('/pending-reviews/:systemId', validateAuth, async (req: Authenticated
  * POST /api/assessment/batch
  * Batch assess multiple controls
  */
-router.post('/batch', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/batch', authenticate, async (req: AuthRequest, res) => {
   try {
     const batchSchema = z.object({
       assessments: z.array(controlAssessmentSchema).min(1).max(50)
     });
     
-    const { assessments } = batchSchema.parse(req.body);
+    const { assessments: parsedAssessments } = batchSchema.parse(req.body);
+    
+    // Convert to proper type
+    const assessments: ControlAssessmentRequest[] = parsedAssessments.map(a => ({
+      systemId: a.systemId,
+      controlId: a.controlId,
+      includeNarrative: a.includeNarrative,
+      assessorNotes: a.assessorNotes,
+      forceReassess: a.forceReassess
+    }));
     
     // Verify access to all systems
     const systemIds = new Set(assessments.map(a => a.systemId));
     for (const systemId of systemIds) {
-      const hasAccess = await checkSystemAccess(req.user!.id, systemId, storage);
+      const hasAccess = await checkSystemAccess(req.user!.userId, systemId);
       if (!hasAccess) {
         return res.status(403).json({
           error: `Access denied - insufficient permissions for system ${systemId}`
@@ -432,3 +463,5 @@ router.post('/batch', validateAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 export default router;
+
+

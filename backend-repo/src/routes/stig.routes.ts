@@ -19,7 +19,13 @@ router.get('/stig/rules/:ruleId', (req, res) => stigController.getRule(req, res)
 router.get('/stig/stats', (req, res) => stigController.getStats(req, res));
 
 // System STIG profile endpoints
-router.get('/systems/:systemId/stig-profiles', (req, res) => stigController.getSystemProfiles(req, res));
-router.put('/systems/:systemId/stig-profiles', (req, res) => stigController.assignSystemProfiles(req, res));
+router.get('/systems/:systemId/stig-profiles', (req, res) => {
+  // Stub - method doesn't exist yet
+  res.status(501).json({ error: 'Not implemented' });
+});
+router.put('/systems/:systemId/stig-profiles', (req, res) => {
+  // Stub - method doesn't exist yet
+  res.status(501).json({ error: 'Not implemented' });
+});
 
 export default router;

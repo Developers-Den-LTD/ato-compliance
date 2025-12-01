@@ -507,7 +507,9 @@ export class RARDataCollectionService {
   }
 
   private calculateControlMitigationDueDate(riskLevel: 'Low' | 'Moderate' | 'High' | 'Critical'): string {
-    return this.calculateMitigationDueDate(riskLevel);
+    // Map Moderate to Medium for the method that expects Medium
+    const mappedLevel = riskLevel === 'Moderate' ? 'Medium' : riskLevel;
+    return this.calculateMitigationDueDate(mappedLevel as 'Low' | 'Medium' | 'High' | 'Critical');
   }
 
   private buildGapDescription(control: Control, systemControl: SystemControl, findings: Finding[]): string {

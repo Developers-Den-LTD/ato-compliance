@@ -11,6 +11,99 @@ import { db } from '../db';
 import { stigRuleControls, stigRules, controls, ccis, systemStigProfiles, systems } from '../schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
+// Type definitions
+interface Assessment {
+  id: string;
+  assessmentId?: string;
+  systemId: string;
+  status: string;
+  progress?: number;
+  createdAt: Date;
+  updatedAt: Date;
+  assessmentDate?: Date;
+  startTime?: Date;
+  endTime?: Date;
+  summary?: any;
+  findings?: any;
+  stigCompliance?: any;
+  controlAssessments?: any;
+  errors?: any[];
+}
+
+interface SystemAssessmentSnapshot {
+  assessmentId: string | null;
+  systemId: string;
+  status: string;
+  progress: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+  startTime?: Date;
+  endTime?: Date;
+  currentStep?: string;
+  summary?: any;
+  findings?: any;
+  stigCompliance?: any;
+  controlAssessments?: any;
+  poamItems?: any[];
+  errors?: any[];
+}
+
+interface SystemAssessmentResult {
+  assessmentId: string;
+  systemId: string;
+  status?: string;
+  progress?: number;
+  startTime?: Date;
+  endTime?: Date;
+  summary?: any;
+  findings?: any;
+  stigCompliance?: any;
+  controlAssessments?: any;
+  poamItems?: any[];
+  errors?: any[];
+}
+
+interface AssessmentSummaryStats {
+  totalControls: number;
+  implementedControls?: number;
+  compliantControls?: number;
+  nonCompliantControls?: number;
+  partiallyImplementedControls?: number;
+  notAssessedControls?: number;
+  compliancePercentage?: number;
+  overallCompliancePercentage?: number;
+  riskScore?: number;
+}
+
+interface AssessmentFindingsStats {
+  totalFindings: number;
+  criticalFindings: number;
+  highFindings: number;
+  mediumFindings?: number;
+  lowFindings?: number;
+  resolvedFindings?: number;
+}
+
+interface AssessmentStigStats {
+  totalRules: number;
+  passedRules?: number;
+  failedRules?: number;
+  nonCompliantRules?: number;
+  notApplicableRules?: number;
+  notReviewedRules?: number;
+  stigCompliancePercentage?: number;
+  compliantRules?: number;
+}
+
+interface System {
+  id: string;
+  name: string;
+  description: string;
+  category?: string;
+  impactLevel?: string;
+  complianceStatus?: string;
+}
+
 const router = Router();
 
 // Configure multer for file uploads
@@ -509,8 +602,10 @@ router.get('/systems/:systemId/history', async (req, res) => {
     
     const limitValue = Array.isArray(limit) ? limit[0] : limit;
     const offsetValue = Array.isArray(offset) ? offset[0] : offset;
-    const limitNumber = Math.min(Math.max(parseInt(limitValue ?? '10', 10) || 10, 1), 50);
-    const offsetNumber = Math.max(parseInt(offsetValue ?? '0', 10) || 0, 0);
+    const limitStr = typeof limitValue === 'string' ? limitValue : '10';
+    const offsetStr = typeof offsetValue === 'string' ? offsetValue : '0';
+    const limitNumber = Math.min(Math.max(parseInt(limitStr, 10) || 10, 1), 50);
+    const offsetNumber = Math.max(parseInt(offsetStr, 10) || 0, 0);
 
     const assessments = await storage.getAssessmentsBySystem(systemId);
     let snapshots = assessments.map(snapshotFromAssessmentRecord);
@@ -577,7 +672,7 @@ router.get('/controls/:controlId/status', async (req, res) => {
     // Get related STIG rules via CCI mappings
     const stigRuleIds = new Set<string>();
     for (const cci of ccis) {
-      const mappings = await storage.getStigRuleCcisByCci(cci.cci);
+      const mappings = await storage.getStigRuleCcisByCci(cci);
       mappings.forEach(mapping => stigRuleIds.add(mapping.stigRuleId));
     }
 
@@ -606,7 +701,7 @@ router.get('/controls/:controlId/status', async (req, res) => {
       controlId,
       title: control.title,
       family: control.family,
-      status: control.status,
+      status: (control as any).status || 'unknown',
       implementationStatus,
       baseline: control.baseline,
       evidenceCount: systemEvidence.length,
@@ -1563,7 +1658,38 @@ router.get('/control-mappings', async (req, res) => {
     const { systemId, ruleType, severity } = req.query;
     
     // Base query: Get all control mappings with joins
-    let query = db
+    // Build where conditions
+    const whereConditions = [];
+    
+    // Filter by system if specified
+    if (systemId && typeof systemId === 'string') {
+      // Get STIG profiles for this system
+      const systemData = await db
+        .select({ stigProfiles: systems.stigProfiles })
+        .from(systems)
+        .where(eq(systems.id, systemId))
+        .limit(1);
+      
+      if (systemData.length > 0 && systemData[0].stigProfiles) {
+        // Filter STIG rules based on system's STIG profiles
+        const stigProfileIds = systemData[0].stigProfiles;
+        whereConditions.push(inArray(stigRules.stigId, stigProfileIds));
+      } else {
+        // System has no STIG profiles, return empty array
+        res.json([]);
+        return;
+      }
+    }
+
+    // Apply additional filters
+    if (ruleType && typeof ruleType === 'string') {
+      whereConditions.push(eq(stigRules.ruleType, ruleType));
+    }
+    if (severity && typeof severity === 'string') {
+      whereConditions.push(eq(stigRules.severity, severity));
+    }
+
+    const query = db
       .select({
         controlId: controls.id,
         controlTitle: controls.title,
@@ -1578,42 +1704,8 @@ router.get('/control-mappings', async (req, res) => {
       .from(stigRuleControls)
       .innerJoin(stigRules, eq(stigRuleControls.stigRuleId, stigRules.id))
       .innerJoin(controls, eq(stigRuleControls.controlId, controls.id))
-      .leftJoin(ccis, eq(ccis.controlId, controls.id));
-
-    // Filter by system if specified
-    if (systemId && typeof systemId === 'string') {
-      // Get STIG profiles for this system
-      const systemData = await db
-        .select({ stigProfiles: systems.stigProfiles })
-        .from(systems)
-        .where(eq(systems.id, systemId))
-        .limit(1);
-      
-      if (systemData.length > 0 && systemData[0].stigProfiles) {
-        // Filter STIG rules based on system's STIG profiles
-        const stigProfileIds = systemData[0].stigProfiles;
-        query = query.where(
-          inArray(stigRules.stigId, stigProfileIds)
-        );
-      } else {
-        // System has no STIG profiles, return empty array
-        res.json([]);
-        return;
-      }
-    }
-
-    // Apply additional filters
-    const whereConditions = [];
-    if (ruleType && typeof ruleType === 'string') {
-      whereConditions.push(eq(stigRules.ruleType, ruleType));
-    }
-    if (severity && typeof severity === 'string') {
-      whereConditions.push(eq(stigRules.severity, severity));
-    }
-
-    if (whereConditions.length > 0) {
-      query = query.where(and(...whereConditions));
-    }
+      .leftJoin(ccis, eq(ccis.controlId, controls.id))
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
     const mappings = await query;
     
@@ -1645,9 +1737,6 @@ router.get('/stig-rules', async (req, res) => {
   try {
     const { ruleType, severity } = req.query;
     
-    // Build base query
-    let query = db.select().from(stigRules);
-    
     // Build where conditions
     const whereConditions = [];
     if (ruleType && typeof ruleType === 'string') {
@@ -1657,10 +1746,9 @@ router.get('/stig-rules', async (req, res) => {
       whereConditions.push(eq(stigRules.severity, severity));
     }
     
-    // Apply filters if any
-    if (whereConditions.length > 0) {
-      query = query.where(and(...whereConditions));
-    }
+    // Build query with conditions
+    const query = db.select().from(stigRules)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
     
     const rules = await query;
     

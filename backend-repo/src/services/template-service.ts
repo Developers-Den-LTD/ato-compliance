@@ -279,7 +279,7 @@ export class TemplateService {
       createdAt: template.createdAt,
       updatedAt: template.updatedAt,
       metadata: template.metadata,
-      tags: template.tags,
+      tags: (template.tags as string[]) || [],
       isPublic: template.isPublic,
       sizeBytes: template.sizeBytes,
       checksum: template.checksum,

@@ -3,7 +3,7 @@
 
 import { db } from '../db';
 import { 
-  evidenceItems, 
+  evidenceItems as evidenceItemsTable, 
   documents, 
   controlMappings,
   semanticChunks,
@@ -41,7 +41,7 @@ export class EvidenceCollectionService {
       console.log(`Collecting evidence for control ${controlId} in framework ${controlFramework}`);
 
       // Get all documents that have mappings to this control
-      const mappings = await db.query.controlMappings.findMany({
+      const mappings = await (db.query as any).controlMappings.findMany({
         where: and(
           eq(controlMappings.controlId, controlId),
           eq(controlMappings.controlFramework, controlFramework),
@@ -63,7 +63,7 @@ export class EvidenceCollectionService {
 
       for (const documentId of documentIds) {
         const documentEvidence = await this.collectEvidenceFromDocument(
-          documentId,
+          String(documentId),
           controlId,
           controlFramework,
           options
@@ -96,7 +96,7 @@ export class EvidenceCollectionService {
   ): Promise<EvidenceItem[]> {
     try {
       // Get document details
-      const document = await db.query.documents.findFirst({
+      const document = await (db.query as any).documents.findFirst({
         where: eq(documents.id, documentId)
       });
 
@@ -106,7 +106,7 @@ export class EvidenceCollectionService {
       }
 
       // Get semantic chunks for this document
-      const chunks = await db.query.semanticChunks.findMany({
+      const chunks = await (db.query as any).semanticChunks.findMany({
         where: eq(semanticChunks.artifactId, documentId),
         orderBy: desc(semanticChunks.createdAt)
       });
@@ -117,10 +117,10 @@ export class EvidenceCollectionService {
       }
 
       // Get existing evidence items for this document and control
-      const existingEvidence = await db.query.evidenceItems.findMany({
+      const existingEvidence = await (db.query as any).evidenceItems.findMany({
         where: and(
-          eq(evidenceItems.documentId, documentId),
-          eq(evidenceItems.controlId, controlId)
+          eq((evidenceItemsTable as any).documentId, documentId),
+          eq((evidenceItemsTable as any).controlId, controlId)
         )
       });
 
@@ -287,7 +287,7 @@ export class EvidenceCollectionService {
    */
   private async saveEvidenceItem(evidenceItem: InsertEvidenceItem): Promise<EvidenceItem> {
     try {
-      const [created] = await db.insert(evidenceItems)
+      const [created] = await db.insert(evidenceItemsTable)
         .values(evidenceItem)
         .returning();
 
@@ -303,11 +303,11 @@ export class EvidenceCollectionService {
    */
   async getEvidenceItemsByControl(controlId: string, controlFramework: string): Promise<EvidenceItem[]> {
     try {
-      return await db.query.evidenceItems.findMany({
+      return await (db.query as any).evidenceItems.findMany({
         where: and(
-          eq(evidenceItems.controlId, controlId)
+          eq((evidenceItemsTable as any).controlId, controlId)
         ),
-        orderBy: desc(evidenceItems.relevanceScore)
+        orderBy: desc((evidenceItemsTable as any).relevanceScore)
       });
     } catch (error) {
       console.error('Error getting evidence items by control:', error);
@@ -320,9 +320,9 @@ export class EvidenceCollectionService {
    */
   async getEvidenceItemsByDocument(documentId: string): Promise<EvidenceItem[]> {
     try {
-      return await db.query.evidenceItems.findMany({
-        where: eq(evidenceItems.documentId, documentId),
-        orderBy: desc(evidenceItems.createdAt)
+      return await (db.query as any).evidenceItems.findMany({
+        where: eq((evidenceItemsTable as any).documentId, documentId),
+        orderBy: desc((evidenceItemsTable as any).createdAt)
       });
     } catch (error) {
       console.error('Error getting evidence items by document:', error);
@@ -338,9 +338,9 @@ export class EvidenceCollectionService {
     updates: Partial<InsertEvidenceItem>
   ): Promise<EvidenceItem> {
     try {
-      const [updated] = await db.update(evidenceItems)
+      const [updated] = await db.update(evidenceItemsTable)
         .set(updates)
-        .where(eq(evidenceItems.id, evidenceItemId))
+        .where(eq(evidenceItemsTable.id, evidenceItemId))
         .returning();
 
       if (!updated) {
@@ -359,8 +359,8 @@ export class EvidenceCollectionService {
    */
   async deleteEvidenceItem(evidenceItemId: string): Promise<void> {
     try {
-      await db.delete(evidenceItems)
-        .where(eq(evidenceItems.id, evidenceItemId));
+      await db.delete(evidenceItemsTable)
+        .where(eq(evidenceItemsTable.id, evidenceItemId));
     } catch (error) {
       console.error('Error deleting evidence item:', error);
       throw new Error(`Failed to delete evidence item: ${error instanceof Error ? error.message : 'Unknown error'}`);

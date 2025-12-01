@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { db } from '../db';
 import { systems, systemControls, artifacts, generationJobs } from "../schema";
 import { eq, sql, count, and } from 'drizzle-orm';
-import { validateAuth, AuthenticatedRequest } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/auth.types';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ export interface SystemReadiness {
 }
 
 // GET /api/systems/:systemId/readiness - Get system readiness for document generation
-router.get('/:systemId/readiness', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.get('/:systemId/readiness', authenticate, async (req: AuthRequest, res) => {
   try {
     const { systemId } = req.params;
 
@@ -175,7 +176,7 @@ router.get('/:systemId/readiness', validateAuth, async (req: AuthenticatedReques
 });
 
 // GET /api/systems/:systemId/document-prerequisites/:documentType - Check specific document prerequisites
-router.get('/:systemId/document-prerequisites/:documentType', validateAuth, async (req: AuthenticatedRequest, res) => {
+router.get('/:systemId/document-prerequisites/:documentType', authenticate, async (req: AuthRequest, res) => {
   try {
     const { systemId, documentType } = req.params;
 
@@ -276,3 +277,4 @@ router.get('/:systemId/document-prerequisites/:documentType', validateAuth, asyn
 });
 
 export default router;
+

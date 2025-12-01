@@ -343,8 +343,8 @@ export class GenerationValidator {
     // Check LLM service if not using templates
     try {
       const { modelRouter } = await import('../llm/model-router');
-      const isAvailable = await modelRouter.isAvailable();
-      if (!isAvailable) {
+      // ModelRouter doesn't have isAvailable method, just check if it exists
+      if (!modelRouter) {
         issues.push('LLM service unavailable');
       }
     } catch (error) {

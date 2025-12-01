@@ -540,9 +540,14 @@ export class ResilientDocumentGenerator extends EventEmitter {
       systemId: context.systemId,
       type: 'ssp',
       title: `System Security Plan - ${context.system.name}`,
+      version: '1.0',
+      filePath: '',
       content: processedData,
       status: 'draft',
       generatedBy: 'ai_generated',
+      metadata: {},
+      templateId: null,
+      template: null,
       createdAt: new Date(),
       updatedAt: new Date()
     };

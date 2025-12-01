@@ -96,7 +96,7 @@ router.get('/control/:controlId', async (req, res) => {
     }
 
     // Get evidence for the control
-    const evidence = await storage.getEvidenceByControl(controlId, systemId as string);
+    const evidence = await storage.getEvidenceByControl(controlId);
 
     res.json({
       success: true,

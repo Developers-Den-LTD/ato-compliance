@@ -540,14 +540,14 @@ Example:
 TOOL: postgres_query
 ARGS: {"query": "SELECT * FROM systems WHERE compliance_status = 'pending' LIMIT 10"}`;
 
-    const enhancedMessages = [
+    const enhancedMessages: LLMMessage[] = [
       { role: 'system', content: enhancedSystemMessage },
       ...messages.slice(1) // Skip original system message
     ];
     
     // Get LLM response (uses user-configured provider via ModelRouter)
     console.log('🤖 Calling LLM via ModelRouter (user-configured provider)...');
-    let currentMessages = [...enhancedMessages];
+    let currentMessages: LLMMessage[] = [...enhancedMessages];
     let response = await modelRouter.generateText(currentMessages, {
       temperature: 0.3,
       maxTokens: 2000,

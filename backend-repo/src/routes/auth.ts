@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { AuthenticationService } from '../services/authentication.service';
 import { UserService } from '../services/user.service';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
 import { z } from 'zod';
 
 const router = Router();
@@ -86,7 +86,7 @@ router.post('/login', validateRequest(z.object({
 });
 
 // POST /api/auth/logout
-router.post('/logout', authenticateToken, async (req, res) => {
+router.post('/logout', authenticate, async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -99,7 +99,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', authenticate, async (req, res) => {
   try {
     // Bypass in development mode or when auth is disabled
     if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_AUTH === 'true') {
@@ -178,7 +178,7 @@ router.post('/refresh', validateRequest(z.object({
 });
 
 // POST /api/auth/change-password
-router.post('/change-password', authenticateToken, validateRequest(z.object({
+router.post('/change-password', authenticate, validateRequest(z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(8),
 })), async (req, res) => {
@@ -248,3 +248,4 @@ router.post('/reset-password', validateRequest(z.object({
 });
 
 export default router;
+

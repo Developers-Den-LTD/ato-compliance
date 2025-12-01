@@ -3,14 +3,14 @@
  */
 
 import { Router } from 'express';
-import { validateAuth } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
 import { atoPackageGenerationService } from '../services/ato-package-generation.service';
 import { ValidationError, standardizeError, logError } from '../utils/error-handler';
 
 const router = Router();
 
 // Apply authentication to all routes
-router.use(validateAuth);
+router.use(authenticate);
 
 /**
  * POST /api/generation/ato-package

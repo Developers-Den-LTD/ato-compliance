@@ -165,7 +165,7 @@ export class PPSGenerationService {
       // If specific template ID provided, use it
       if (request.templateId) {
         const template = await storage.getTemplate(request.templateId);
-        return template?.activeVersion || null;
+        return template ? await storage.getTemplateVersion(template.activeVersion) : null;
       }
 
       // Find default template for PPS
@@ -174,7 +174,7 @@ export class PPSGenerationService {
       
       if (activeTemplate) {
         const template = await storage.getTemplate(activeTemplate.id);
-        return template?.activeVersion || null;
+        return template ? await storage.getTemplateVersion(template.activeVersion) : null;
       }
 
       return null;

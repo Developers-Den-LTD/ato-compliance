@@ -342,11 +342,11 @@ export class EvidenceDeduplicationService {
     
     // Merge source locations
     const mergedLocation = {
-      ...baseItem.sourceLocation,
+      ...(typeof baseItem.sourceLocation === 'object' && baseItem.sourceLocation !== null ? baseItem.sourceLocation : {}),
       mergedFrom: allItems.map(item => ({
         id: item.id,
         documentId: item.documentId,
-        chunkId: item.sourceLocation?.chunkId
+        chunkId: (item.sourceLocation as any)?.chunkId
       }))
     };
 

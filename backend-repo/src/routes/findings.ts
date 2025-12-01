@@ -1,11 +1,11 @@
 // Findings API routes
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // GET /api/findings?systemId=X
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
     const { systemId } = req.query;
 
@@ -18,3 +18,4 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 export default router;
+

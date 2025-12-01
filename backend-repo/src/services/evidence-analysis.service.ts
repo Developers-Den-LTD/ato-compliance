@@ -234,7 +234,7 @@ export class EvidenceAnalysisService {
 
 Control Description: ${control.description}
 Requirements: ${control.requirements || 'N/A'}
-Objective: ${control.objective || 'N/A'}
+Objective: N/A
 
 Evidence Type: document
 Evidence Content:
@@ -458,21 +458,25 @@ Provide analysis in JSON format with: implementationStatus, confidence (0-100), 
 
   private extractDocumentContent(artifacts: Artifact[]): string {
     return artifacts
-      .map(a => a.content || `File: ${a.fileName}`)
+      .map(a => {
+        const content = (a.metadata as any)?.extractedText || (a.metadata as any)?.content;
+        return content || `File: ${a.name}`;
+      })
       .join('\n\n---\n\n');
   }
 
   private extractConfigurations(artifacts: Artifact[]): any[] {
     const configs = [];
     for (const artifact of artifacts) {
-      if (artifact.content) {
+      const content = (artifact.metadata as any)?.extractedText || (artifact.metadata as any)?.content;
+      if (content) {
         try {
           // Try to parse as JSON
-          const config = JSON.parse(artifact.content);
+          const config = JSON.parse(content);
           configs.push(config);
         } catch {
           // Try to parse as key-value pairs
-          const kvPairs = this.parseKeyValueConfig(artifact.content);
+          const kvPairs = this.parseKeyValueConfig(content);
           if (Object.keys(kvPairs).length > 0) {
             configs.push(kvPairs);
           }
@@ -502,9 +506,10 @@ Provide analysis in JSON format with: implementationStatus, confidence (0-100), 
   private extractAuditEvents(artifacts: Artifact[]): any[] {
     const events = [];
     for (const artifact of artifacts) {
-      if (artifact.content) {
+      const content = (artifact.metadata as any)?.extractedText || (artifact.metadata as any)?.content;
+      if (content) {
         // Parse audit logs (simplified - real implementation would handle various formats)
-        const lines = artifact.content.split('\n');
+        const lines = content.split('\n');
         for (const line of lines) {
           if (line.trim()) {
             events.push({
@@ -752,7 +757,10 @@ Provide analysis in JSON format with: implementationStatus, confidence (0-100), 
     artifacts: Artifact[]
   ): Promise<EvidenceAnalysisResult> {
     // Simple keyword-based analysis
-    const content = artifacts.map(a => a.content || '').join(' ').toLowerCase();
+    const content = artifacts.map(a => {
+      const text = (a.metadata as any)?.extractedText || (a.metadata as any)?.content;
+      return text || '';
+    }).join(' ').toLowerCase();
     const keywords = this.getControlKeywords(control);
     
     const foundKeywords = keywords.filter(k => content.includes(k.toLowerCase()));

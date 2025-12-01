@@ -212,7 +212,7 @@ export class NarrativeGenerationService {
               // Update artifact metadata with extracted text for future use
               await storage.updateArtifact(artifact.id, {
                 metadata: {
-                  ...artifact.metadata,
+                  ...(typeof artifact.metadata === 'object' && artifact.metadata !== null ? artifact.metadata : {}),
                   extractedText: extractedContent.text,
                   extractedAt: new Date().toISOString()
                 }
@@ -252,7 +252,7 @@ export class NarrativeGenerationService {
     
     // Remove duplicates and clean up
     Object.keys(details).forEach(key => {
-      details[key] = [...new Set(details[key])].filter(item => item && item.length > 2);
+      details[key] = [...new Set(details[key])].filter(item => item && typeof item === 'string' && item.length > 2);
     });
     
     return details;

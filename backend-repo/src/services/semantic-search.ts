@@ -62,7 +62,6 @@ export class SemanticSearchEngine {
     // Perform vector similarity search
     const rawResults = await storage.findSimilarChunks(
       controlEmbedding,
-      systemId,
       limit * 2, // Get more results for reranking
       minSimilarity
     );
@@ -143,7 +142,6 @@ export class SemanticSearchEngine {
     // Search for similar chunks
     const rawResults = await storage.findSimilarChunks(
       queryEmbedding,
-      systemId,
       limit * 2,
       minSimilarity
     );
@@ -227,7 +225,7 @@ export class SemanticSearchEngine {
   private convertToControlSearchResults(results: ControlEmbedding[]): ControlSearchResult[] {
     return results.map(result => ({
       controlId: result.controlId,
-      title: result.metadata?.title || result.controlId,
+      title: (result.metadata as any)?.title || result.controlId,
       similarity: (result as any).similarity || 0.8,
       relevanceScore: (result as any).similarity || 0.8,
       metadata: result.metadata || {}
@@ -408,6 +406,14 @@ export class SemanticSearchEngine {
       totalControls: 0,
       averageChunkSize: 0
     };
+  }
+
+  /**
+   * Get chunk embedding (stub method)
+   */
+  async getChunkEmbedding(chunkId: string): Promise<number[] | null> {
+    // This would query the semantic_chunks table for the embedding
+    return null;
   }
 }
 

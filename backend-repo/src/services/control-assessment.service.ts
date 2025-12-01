@@ -13,7 +13,7 @@ import type {
   SystemControl,
   StigRule,
   InsertSystemControl,
-  InsertAssessmentResult
+  InsertAssessment
 } from '../schema';
 
 export interface ControlAssessmentRequest {
@@ -463,8 +463,8 @@ Respond in JSON format:
     const stigRuleIds = new Set<string>();
     
     for (const cci of ccis) {
-      const mappings = await storage.getStigRuleCcisByCci(cci.cci);
-      mappings.forEach(m => stigRuleIds.add(m.stigRuleId));
+      const mappings = await storage.getStigRuleCcisByCci(cci);
+      mappings.forEach((m: any) => stigRuleIds.add(m.stigRuleId));
     }
     
     const stigRules = await Promise.all(

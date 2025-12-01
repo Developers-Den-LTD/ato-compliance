@@ -3,13 +3,13 @@
  */
 
 import { Router } from 'express';
-import { validateAuth } from '../middleware/auth';
+import { authenticate } from '../middleware/auth.middleware';
 import { importFullNISTControls } from '../data/import-full-nist-controls';
 
 const router = Router();
 
 // Apply authentication to all routes
-router.use(validateAuth);
+router.use(authenticate);
 
 /**
  * POST /api/nist/import
@@ -21,7 +21,7 @@ router.post('/import', async (req, res) => {
     
     // Check if controls already exist
     const { db } = await import('../db');
-    const { controls } = await import('./schema');
+    const { controls } = await import('../schema');
     const existingControls = await db.select().from(controls).limit(1);
     
     if (existingControls.length > 0) {
@@ -51,4 +51,5 @@ router.post('/import', async (req, res) => {
 });
 
 export default router;
+
 
