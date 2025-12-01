@@ -28,33 +28,13 @@ const allowedOrigins = [
 ].filter(Boolean);
 console.log('🌐 CORS allowed origins:', allowedOrigins);
 
-function isAllowedOrigin(origin) {
-  if (!origin) return true; // mobile/Postman
-
-  // Allow ALL vercel domains for your project
-  if (/^https:\/\/ato-compliance-frontend.*\.vercel\.app$/.test(origin)) {
-    return true;
-  }
-
-  return allowedOrigins.includes(origin);
-}
 
 
 const app = express();
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      console.log("📨 Origin:", origin);
-
-      if (isAllowedOrigin(origin)) {
-        console.log("✅ Allowed");
-        return callback(null, true);
-      } else {
-        console.log("❌ BLOCKED:", origin);
-        return callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: allowedOrigins,
     credentials: true,
   })
 );
