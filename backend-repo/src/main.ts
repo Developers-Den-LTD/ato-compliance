@@ -22,56 +22,38 @@ const PORT = process.env.PORT || 3000;
 
 
 // Allowed origins for CORS
-// Support comma-separated list of origins in FRONTEND_URL
-const frontendUrls = process.env.FRONTEND_URL 
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-  : [];
-
 const allowedOrigins = [
-  ...frontendUrls,
-  'http://localhost:5173',
-  'https://ato-compliance-frontend-kd6j.vercel.app',  // Vite dev server
-  'http://localhost:3000',  // In case frontend is served from same port
-  'http://localhost:5174',  // Alternative Vite port
+  'http://localhost:5173',                                      // local dev
+  'https://ato-compliance-frontend-kd6j.vercel.app',          // production frontend
+  process.env.FRONTEND_URL || ''                               // custom frontend URL
 ].filter(Boolean); // Remove empty strings
 
-console.log('🌐 CORS Configuration:');
-console.log('   FRONTEND_URL env var:', process.env.FRONTEND_URL);
-console.log('   Allowed origins:', allowedOrigins);
+console.log('🌐 CORS allowed origins:', allowedOrigins);
 
 const app = express();
 
-// CORS handler with detailed logging
+// CORS handler
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log('📨 CORS request from origin:', origin);
+      console.log('📨 Request from:', origin);
       
-      // Allow requests with no origin (like mobile apps, Postman, curl)
+      // Allow requests with no origin
       if (!origin) {
-        console.log('   ✅ Allowed (no origin header)');
         return callback(null, true);
       }
       
       if (allowedOrigins.includes(origin)) {
-        console.log('   ✅ Allowed');
+        console.log('✅ Allowed');
         callback(null, true);
       } else {
-        console.warn('   ❌ BLOCKED - Origin not in allowed list');
-        console.warn('   Add this to FRONTEND_URL:', origin);
+        console.log('❌ BLOCKED');
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['Set-Cookie'],
-    maxAge: 86400, // 24 hours
   })
 );
-
-// Additional CORS headers for preflight
-app.options('*', cors());
 
 app.use(express.json());
 app.use(cookieParser());
