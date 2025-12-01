@@ -21,39 +21,44 @@ const PORT = process.env.PORT || 3000;
 
 
 
-// Allowed origins for CORS
-const allowedOrigins = [
-  'http://localhost:5173',                                      // local dev
-  'https://ato-compliance-frontend-kd6j.vercel.app',          // production frontend
-  process.env.FRONTEND_URL || ''                               // custom frontend URL
-].filter(Boolean); // Remove empty strings
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://ato-compliance-frontend-kd6j.vercel.app',          // production frontend
+].filter(Boolean);
 console.log('🌐 CORS allowed origins:', allowedOrigins);
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // mobile/Postman
+
+  // Allow ALL vercel domains for your project
+  if (/^https:\/\/ato-compliance-frontend.*\.vercel\.app$/.test(origin)) {
+    return true;
+  }
+
+  return allowedOrigins.includes(origin);
+}
+
 
 const app = express();
 
-// CORS handler
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log('📨 Request from:', origin);
-      
-      // Allow requests with no origin
-      if (!origin) {
+      console.log("📨 Origin:", origin);
+
+      if (isAllowedOrigin(origin)) {
+        console.log("✅ Allowed");
         return callback(null, true);
-      }
-      
-      if (allowedOrigins.includes(origin)) {
-        console.log('✅ Allowed');
-        callback(null, true);
       } else {
-        console.log('❌ BLOCKED');
-        callback(new Error('Not allowed by CORS'));
+        console.log("❌ BLOCKED:", origin);
+        return callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
   })
 );
+
 
 app.use(express.json());
 app.use(cookieParser());
