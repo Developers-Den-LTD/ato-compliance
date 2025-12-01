@@ -2,10 +2,9 @@
 import https from 'https';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// In CommonJS, __dirname is available globally after compilation
+const currentDir = path.resolve();
 
 /**
  * Fetches the official NIST 800-53 Rev 5 catalog from NIST's OSCAL repository
@@ -198,7 +197,7 @@ async function main() {
     console.log(`Control families: ${families.size}`);
     
     // Save processed controls
-    const outputPath = path.join(__dirname, 'nist-800-53-rev5-full.json');
+    const outputPath = path.join(currentDir, 'nist-800-53-rev5-full.json');
     await fs.writeFile(
       outputPath,
       JSON.stringify({
@@ -231,6 +230,6 @@ async function main() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   main();
 }

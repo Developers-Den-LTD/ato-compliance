@@ -1,6 +1,9 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { spawn } from 'child_process';
+// NOTE: This file requires @modelcontextprotocol/sdk to be installed
+// For air-gapped environments, use airgap-mcp-tools.ts instead
+// To use this file, run: npm install @modelcontextprotocol/sdk
+
+// import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+// import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 interface MCPTool {
   name: string;
@@ -12,8 +15,8 @@ interface MCPServer {
   name: string;
   command: string;
   args: string[];
-  client?: Client;
-  transport?: StdioClientTransport;
+  client?: any; // Client type from @modelcontextprotocol/sdk
+  transport?: any; // StdioClientTransport type from @modelcontextprotocol/sdk
   tools: MCPTool[];
 }
 
@@ -21,6 +24,10 @@ export class MCPManager {
   private servers: Map<string, MCPServer> = new Map();
 
   async initializePostgresServer() {
+    throw new Error('MCP SDK not installed. Install @modelcontextprotocol/sdk or use airgap-mcp-tools.ts instead');
+    
+    // Uncomment when @modelcontextprotocol/sdk is installed:
+    /*
     const dbUrl = process.env.DATABASE_URL || 
       `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@postgres:5432/${process.env.POSTGRES_DB}`;
 
@@ -50,7 +57,7 @@ export class MCPManager {
       
       // List available tools
       const toolsResult = await client.listTools();
-      server.tools = toolsResult.tools.map(tool => ({
+      server.tools = toolsResult.tools.map((tool: any) => ({
         name: tool.name,
         description: tool.description || '',
         inputSchema: tool.inputSchema
@@ -67,9 +74,14 @@ export class MCPManager {
       console.error('Failed to initialize PostgreSQL MCP server:', error);
       throw error;
     }
+    */
   }
 
   async initializeFilesystemServer() {
+    throw new Error('MCP SDK not installed. Install @modelcontextprotocol/sdk or use airgap-mcp-tools.ts instead');
+    
+    // Uncomment when @modelcontextprotocol/sdk is installed:
+    /*
     const allowedDirs = [
       '/app/API-DOCUMENTATION.md',
       '/app/LLM-CONFIGURATION.md',
@@ -102,7 +114,7 @@ export class MCPManager {
       await client.connect(transport);
       
       const toolsResult = await client.listTools();
-      server.tools = toolsResult.tools.map(tool => ({
+      server.tools = toolsResult.tools.map((tool: any) => ({
         name: tool.name,
         description: tool.description || '',
         inputSchema: tool.inputSchema
@@ -119,6 +131,7 @@ export class MCPManager {
       console.error('Failed to initialize Filesystem MCP server:', error);
       throw error;
     }
+    */
   }
 
   async executeTool(serverName: string, toolName: string, args: any): Promise<any> {

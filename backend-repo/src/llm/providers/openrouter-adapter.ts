@@ -110,10 +110,12 @@ export class OpenRouterAdapter implements LLMProvider {
 
   async generateText(messages: LLMMessage[], options: LLMGenerationOptions = {}): Promise<LLMResponse> {
     try {
-      const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
+      const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = messages
+        .filter(msg => msg.role !== 'tool') // Filter out tool messages as they require tool_call_id
+        .map(msg => ({
+          role: msg.role as 'system' | 'user' | 'assistant',
+          content: msg.content
+        }));
 
       const modelToUse = options.model || this.configuration.model || DEFAULT_MODEL;
       const requestParams: any = {
@@ -122,11 +124,6 @@ export class OpenRouterAdapter implements LLMProvider {
         max_tokens: options.maxTokens || 4000,
         temperature: options.temperature || 0.1,
       };
-
-      // Add OpenRouter specific parameters
-      if (options.stream) {
-        requestParams.stream = true;
-      }
 
       const response = await this.client.chat.completions.create(requestParams);
 
@@ -144,7 +141,9 @@ export class OpenRouterAdapter implements LLMProvider {
           outputTokens: response.usage?.completion_tokens,
           totalTokens: response.usage?.total_tokens,
         },
-        finishReason: choice.finish_reason || 'stop',
+        metadata: {
+          finishReason: choice.finish_reason || 'stop',
+        }
       };
     } catch (error) {
       console.error('OpenRouter generation failed:', error);
@@ -152,7 +151,7 @@ export class OpenRouterAdapter implements LLMProvider {
     }
   }
 
-  async generateJSON(messages: LLMMessage[], options: LLMGenerationOptions = {}): Promise<LLMResponse> {
+  async generateJSON<T = any>(messages: LLMMessage[], options: LLMGenerationOptions = {}): Promise<T> {
     // For JSON generation, add response format if the model supports it
     const enhancedOptions = {
       ...options,
@@ -166,7 +165,19 @@ export class OpenRouterAdapter implements LLMProvider {
       lastMessage.content += '\n\nPlease respond with valid JSON only.';
     }
 
-    return this.generateText(enhancedMessages, enhancedOptions);
+    const response = await this.generateText(enhancedMessages, enhancedOptions);
+    
+    // Parse the JSON from the response
+    try {
+      return JSON.parse(response.content) as T;
+    } catch (error) {
+      // Try to extract JSON from markdown code blocks
+      const jsonMatch = response.content.match(/```(?:json)?\s*(\{[\s\S]*\}|\[[\s\S]*\])\s*```/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[1]) as T;
+      }
+      throw new Error(`Failed to parse JSON response: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   getAvailableModels(): string[] {

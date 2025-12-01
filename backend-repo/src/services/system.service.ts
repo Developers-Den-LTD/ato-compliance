@@ -14,6 +14,8 @@ const CreateSystemSchema = z.object({
   impactLevel: z.enum(['Low', 'Moderate', 'High']),
   complianceStatus: ComplianceStatus,
   owner: z.string().uuid(),
+  systemType: z.string().optional(),
+  operatingSystem: z.string().optional(),
   stigProfiles: z.array(z.string()).optional(),
   autoStigUpdates: z.boolean().optional(),
 });
@@ -24,6 +26,10 @@ const UpdateSystemSchema = z.object({
   category: z.enum(['General Support System', 'Major Application', 'Minor Application', 'Enclave']).optional(),
   impactLevel: z.enum(['Low', 'Moderate', 'High']).optional(),
   complianceStatus: ComplianceStatus.optional(),
+  systemType: z.string().optional(),
+  operatingSystem: z.string().optional(),
+  stigProfiles: z.array(z.string()).optional(),
+  autoStigUpdates: z.boolean().optional(),
 });
 
 const SystemQuerySchema = z.object({

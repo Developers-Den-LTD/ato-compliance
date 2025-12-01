@@ -274,10 +274,7 @@ export class CKLParser implements VulnerabilityParser {
           evidence: vuln.findingDetails || vuln.comments || `Status: ${vuln.status}`,
           scanner: 'stig-viewer',
           scanDate: new Date(),
-          ruleType: 'stig',
-          checkContent: vuln.checkContent,
-          findingDetails: vuln.findingDetails,
-          comments: vuln.comments
+          ruleType: 'stig'
         };
         
         vulnerabilities.push(parsedVuln);

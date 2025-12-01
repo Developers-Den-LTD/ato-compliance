@@ -26,7 +26,7 @@ export interface UploadedFile {
 
 export interface ArtifactUploadRequest {
   systemId: string;
-  type: 'architecture_diagram' | 'system_documentation' | 'evidence_file' | 'policy_document' | 'procedure_document' | 'assessment_report' | 'source_code' | 'infrastructure_code' | 'other';
+  type: 'architecture_diagram' | 'system_documentation' | 'evidence_file' | 'policy_document' | 'procedure_document' | 'assessment_report' | 'scan_results' | 'source_code' | 'infrastructure_code' | 'other';
   title: string;
   description?: string;
   file: UploadedFile;

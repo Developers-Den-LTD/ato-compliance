@@ -71,6 +71,12 @@ testConnection().then((connected) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 ${APP_NAME} Backend running on http://localhost:${PORT}`);
-});
+// Only start server if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 ${APP_NAME} Backend running on http://localhost:${PORT}`);
+  });
+}
+
+// Export app for testing
+export { app };

@@ -141,7 +141,7 @@ export class ModelRouter {
           return;
         } else {
           // Fallback to non-streaming completion for providers without streaming support
-          const response = await provider.complete(options.messages, {
+          const response = await provider.generateText(options.messages, {
             temperature: options.temperature,
             maxTokens: options.maxTokens,
           });

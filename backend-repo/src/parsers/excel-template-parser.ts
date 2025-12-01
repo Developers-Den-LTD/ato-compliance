@@ -127,7 +127,7 @@ export class ExcelTemplateParser {
       // Parse each worksheet
       for (let i = 0; i < workbook.worksheets.length; i++) {
         const worksheet = workbook.worksheets[i];
-        const worksheetResult = await this.parseWorksheet(worksheet, result.documentType);
+        const worksheetResult = await this.parseWorksheet(worksheet, result.structure.documentType);
         
         result.variables.push(...worksheetResult.variables);
         result.structure.worksheets.push(worksheetResult.worksheet);

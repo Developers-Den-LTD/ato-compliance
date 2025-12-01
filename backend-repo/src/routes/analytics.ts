@@ -230,7 +230,11 @@ router.get('/compliance/export', async (req, res) => {
     
     // Get all systems with compliance data
     const systemsData = await db.select().from(systems);
-    const controlsData = await db.select().from(controls);
+    
+    // Get system_controls data (which has status)
+    const systemControlsData = await db.execute<{system_id: string, status: string}>(
+      sql`SELECT system_id, status FROM system_controls`
+    );
 
     if (format === 'csv') {
       res.setHeader('Content-Type', 'text/csv');
@@ -241,10 +245,11 @@ router.get('/compliance/export', async (req, res) => {
       
       // Add system data
       for (const system of systemsData) {
-        const implementedCount = controlsData.filter(c => c.status === 'implemented').length;
-        const notImplementedCount = controlsData.filter(c => c.status === 'not_implemented').length;
+        const systemControls = systemControlsData.filter(sc => sc.system_id === system.id);
+        const implementedCount = systemControls.filter(c => c.status === 'implemented').length;
+        const notImplementedCount = systemControls.filter(c => c.status === 'not_implemented').length;
         
-        csv += `"${system.name}","${system.category}","${system.impactLevel}","${system.complianceStatus}",${controlsData.length},${implementedCount},${notImplementedCount}\n`;
+        csv += `"${system.name}","${system.category}","${system.impactLevel}","${system.complianceStatus}",${systemControls.length},${implementedCount},${notImplementedCount}\n`;
       }
       
       res.send(csv);

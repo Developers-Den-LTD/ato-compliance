@@ -1,8 +1,9 @@
 // Admin API Routes
 // Administrative endpoints for system configuration and maintenance
 
-import { Router, Request, Response } from 'express';
-import { validateAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { Router, Response } from 'express';
+import { authenticate } from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/auth.types';
 import { checkAndFixProviderSettings } from '../utils/fix-provider-settings';
 import { storage } from '../storage';
 
@@ -12,7 +13,7 @@ const router = Router();
  * POST /api/admin/fix-providers
  * Initialize or fix LLM provider settings
  */
-router.post('/fix-providers', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/fix-providers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     console.log('Admin: Fixing provider settings...');
     
@@ -51,7 +52,7 @@ router.post('/fix-providers', validateAuth, async (req: AuthenticatedRequest, re
  * GET /api/admin/provider-status
  * Get current LLM provider status
  */
-router.get('/provider-status', validateAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/provider-status', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const providers = await storage.getProviderSettings();
     

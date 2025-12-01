@@ -1,6 +1,8 @@
 // LLM Provider Layer - Main Export
 // Enterprise ATO Document Generation with AI
 
+import { modelRouter } from './model-router';
+
 export { AnthropicAdapter } from './providers/anthropic-adapter';
 export { OpenAIAdapter } from './providers/openai-adapter';
 export { OllamaAdapter } from './providers/ollama-adapter';

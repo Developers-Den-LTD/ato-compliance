@@ -39,8 +39,8 @@ const postgresQueryTool: MCPTool = {
     const result = await db.execute(sql.raw(query));
     
     return {
-      rows: result.rows,
-      rowCount: result.rows.length
+      rows: result,
+      rowCount: result.length
     };
   }
 };
@@ -62,7 +62,7 @@ const postgresListTablesTool: MCPTool = {
     `);
     
     return {
-      tables: result.rows.map((r: any) => r.table_name)
+      tables: result.map((r: any) => r.table_name)
     };
   }
 };
@@ -96,7 +96,7 @@ const postgresDescribeTableTool: MCPTool = {
     
     return {
       table: args.table,
-      columns: result.rows
+      columns: result
     };
   }
 };
@@ -104,26 +104,28 @@ const postgresDescribeTableTool: MCPTool = {
 // Read File Tool
 const filesystemReadFileTool: MCPTool = {
   name: 'filesystem_read_file',
-  description: 'Read documentation files and API guides. Use this to answer "how to" questions about using the application, API endpoints, procedures, and workflows. API documentation is at /app/API-DOCUMENTATION.md',
+  description: 'Read documentation files, schema definitions, and source code. Use this to answer "how to" questions about using the application, API endpoints, procedures, and workflows. Available files include README.md, schema.ts, storage.ts, and files in routes/, controllers/, and services/ directories.',
   inputSchema: {
     type: 'object',
     properties: {
       path: {
         type: 'string',
-        description: 'Path to the file to read (e.g., /app/API-DOCUMENTATION.md for API usage questions)'
+        description: 'Relative path to the file to read (e.g., "README.md", "src/schema.ts", "src/routes/systems.ts")'
       }
     },
     required: ['path']
   },
   execute: async (args: { path: string }) => {
     const allowedPaths = [
-      '/app/API-DOCUMENTATION.md',
-      '/app/LLM-CONFIGURATION.md',
-      '/app/shared/schema.ts'
+      path.resolve(__dirname, '../../README.md'),
+      path.resolve(__dirname, '../schema.ts'),
+      path.resolve(__dirname, '../storage.ts')
     ];
     
     const allowedDirs = [
-      '/app/server/routes'
+      path.resolve(__dirname, '../routes'),
+      path.resolve(__dirname, '../controllers'),
+      path.resolve(__dirname, '../services')
     ];
     
     const filePath = path.resolve(args.path);
@@ -161,7 +163,9 @@ const filesystemListDirectoryTool: MCPTool = {
   },
   execute: async (args: { path: string }) => {
     const allowedDirs = [
-      '/app/server/routes'
+      path.resolve(__dirname, '../routes'),
+      path.resolve(__dirname, '../controllers'),
+      path.resolve(__dirname, '../services')
     ];
     
     const dirPath = path.resolve(args.path);
@@ -214,7 +218,7 @@ const semanticSearchDocumentsTool: MCPTool = {
     try {
       // Import services dynamically to avoid circular dependencies
       const { storage } = await import('../storage');
-      const { embeddingService } = await import('../services/embedding.service');
+      const { embeddingService } = await import('../services/embedding-service');
       
       const limit = Math.min(args.limit || 10, 50);
       const minRelevance = args.minRelevance || 50;
@@ -224,27 +228,27 @@ const semanticSearchDocumentsTool: MCPTool = {
       const queryEmbedding = await embeddingService.generateEmbedding(args.query);
       
       // Search semantic_chunks table using vector similarity
-      let chunks;
+      let queryStr = sql`
+        SELECT 
+          sc.*,
+          a.name as document_name,
+          a.type as document_type,
+          s.name as system_name,
+          1 - (sc.embedding <-> ${JSON.stringify(queryEmbedding)}::vector) as similarity
+        FROM semantic_chunks sc
+        JOIN artifacts a ON sc.artifact_id = a.id
+        JOIN systems s ON sc.system_id = s.id
+        WHERE 1 - (sc.embedding <-> ${JSON.stringify(queryEmbedding)}::vector) >= ${minSimilarity}
+      `;
+      
+      // Add system filter if provided
       if (args.systemId) {
-        chunks = await storage.findSimilarChunks(queryEmbedding, args.systemId, limit, minSimilarity);
-      } else {
-        // Search across all systems (no system filter)
-        const allChunks = await db.execute(sql`
-          SELECT 
-            sc.*,
-            a.name as document_name,
-            a.type as document_type,
-            s.name as system_name,
-            1 - (sc.embedding <-> ${JSON.stringify(queryEmbedding)}::vector) as similarity
-          FROM semantic_chunks sc
-          JOIN artifacts a ON sc.artifact_id = a.id
-          JOIN systems s ON sc.system_id = s.id
-          WHERE 1 - (sc.embedding <-> ${JSON.stringify(queryEmbedding)}::vector) >= ${minSimilarity}
-          ORDER BY similarity DESC
-          LIMIT ${limit}
-        `);
-        chunks = allChunks.rows;
+        queryStr = sql`${queryStr} AND sc.system_id = ${args.systemId}`;
       }
+      
+      queryStr = sql`${queryStr} ORDER BY similarity DESC LIMIT ${limit}`;
+      
+      const chunks = await db.execute(queryStr);
       
       if (chunks.length === 0) {
         return {

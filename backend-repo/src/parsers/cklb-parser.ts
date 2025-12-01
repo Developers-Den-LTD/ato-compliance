@@ -104,7 +104,7 @@ export class CKLBParser implements VulnerabilityParser {
     }
     
     return {
-      scanner: 'stig-viewer-cklb',
+      scanner: 'stig-viewer',
       version: version || 'Unknown',
       scanDate: scanDate || new Date(),
       targetCount: 1 // CKLB files typically contain data for one target
@@ -153,13 +153,9 @@ export class CKLBParser implements VulnerabilityParser {
               cci: rule.ccis,
               solution: rule.fix_text,
               evidence: rule.result_comment || `Status: ${this.mapRuleResult(rule.rule_result)}`,
-              scanner: 'stig-viewer-cklb',
+              scanner: 'stig-viewer',
               scanDate: new Date(),
-              ruleType: 'stig',
-              checkContent: rule.check_content,
-              findingDetails: rule.result_comment,
-              stigName: stig.stig_title,
-              stigVersion: stig.version
+              ruleType: 'stig'
             };
             
             vulnerabilities.push(parsedVuln);
@@ -172,13 +168,11 @@ export class CKLBParser implements VulnerabilityParser {
       const host: ParsedHost = {
         ip: targetData.ip_address?.[0] || targetData.fqdn || targetData.hostname || 'Unknown',
         hostname: targetData.hostname || targetData.fqdn || 'Unknown',
+        fqdn: targetData.fqdn,
+        macAddress: targetData.mac_address?.join(', '),
         vulnerabilities,
         scanStart: new Date(),
-        scanEnd: new Date(),
-        mac: targetData.mac_address?.join(', '),
-        fqdn: targetData.fqdn,
-        targetType: targetData.target_type,
-        role: targetData.role
+        scanEnd: new Date()
       };
       
       // Calculate vulnerability summary
@@ -202,7 +196,7 @@ export class CKLBParser implements VulnerabilityParser {
       return {
         scanName,
         scanDate: new Date(),
-        scanner: 'stig-viewer-cklb',
+        scanner: 'stig-viewer',
         scannerVersion: await this.getMetadata(content).then(m => m.version),
         hosts: [host],
         totalVulnerabilities: vulnerabilities.length,

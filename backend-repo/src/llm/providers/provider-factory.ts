@@ -19,18 +19,31 @@ export interface ProviderConfig {
  * Creates a configured provider instance
  */
 export function createProvider(name: string, config?: ProviderConfig): LLMProvider | null {
+  let provider: LLMProvider | null = null;
+  
   switch (name) {
     case 'anthropic':
-      return new AnthropicAdapter(config);
+      provider = new AnthropicAdapter();
+      break;
     case 'openai':
-      return new OpenAIAdapter(config);
+      provider = new OpenAIAdapter();
+      break;
     case 'ollama':
-      return new OllamaAdapter(config);
+      provider = new OllamaAdapter();
+      break;
     case 'mock':
-      return new MockAdapter();
+      provider = new MockAdapter();
+      break;
     default:
       return null;
   }
+  
+  // Apply configuration if provided
+  if (provider && config && 'updateConfiguration' in provider) {
+    (provider as any).updateConfiguration(config);
+  }
+  
+  return provider;
 }
 
 /**

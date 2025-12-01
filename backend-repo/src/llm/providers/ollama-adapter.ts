@@ -250,4 +250,44 @@ export class OllamaAdapter implements LLMProvider {
       throw error;
     }
   }
+
+  /**
+   * Generate JSON response using Ollama
+   */
+  async generateJSON<T = any>(messages: LLMMessage[], options: LLMGenerationOptions = {}): Promise<T> {
+    console.log('[OllamaAdapter] Generating JSON...');
+    
+    // Add JSON format instruction to messages
+    const enhancedMessages = [...messages];
+    const lastMessage = enhancedMessages[enhancedMessages.length - 1];
+    if (lastMessage && lastMessage.role === 'user') {
+      lastMessage.content += '\n\nPlease respond with valid JSON only, without any markdown formatting or explanations.';
+    }
+
+    const response = await this.generateText(enhancedMessages, options);
+    
+    // Parse the JSON from the response
+    try {
+      return JSON.parse(response.content) as T;
+    } catch (error) {
+      // Try to extract JSON from markdown code blocks
+      const jsonMatch = response.content.match(/```(?:json)?\s*(\{[\s\S]*\}|\[[\s\S]*\])\s*```/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[1]) as T;
+      }
+      
+      // Try to find JSON object or array in the response
+      const jsonObjectMatch = response.content.match(/\{[\s\S]*\}/);
+      const jsonArrayMatch = response.content.match(/\[[\s\S]*\]/);
+      
+      if (jsonObjectMatch) {
+        return JSON.parse(jsonObjectMatch[0]) as T;
+      }
+      if (jsonArrayMatch) {
+        return JSON.parse(jsonArrayMatch[0]) as T;
+      }
+      
+      throw new Error(`Failed to parse JSON response: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }

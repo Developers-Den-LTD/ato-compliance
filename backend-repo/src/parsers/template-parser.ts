@@ -7,8 +7,8 @@ import type { TemplateVersion } from '../schema';
 
 // Document parsing libraries
 import * as mammoth from 'mammoth';
-import * as htmlParser from 'node-html-parser';
-import * as marked from 'marked';
+import { parse as parseHtml } from 'node-html-parser';
+import { marked } from 'marked';
 import PizZip from 'pizzip';
 
 export interface TemplateParseResult {
@@ -354,7 +354,7 @@ export class TemplateParser {
   ): Promise<{ variables: TemplateVariable[]; structure: TemplateStructure }> {
     try {
       const html = content.toString('utf8');
-      const root = htmlParser.parse(html);
+      const root = parseHtml(html);
       const text = root.text;
       
       return this.extractVariablesFromText(text, 'html', errors);
@@ -378,8 +378,8 @@ export class TemplateParser {
   ): Promise<{ variables: TemplateVariable[]; structure: TemplateStructure }> {
     try {
       const markdown = content.toString('utf8');
-      const html = marked.parse(markdown);
-      const root = htmlParser.parse(html);
+      const html = await marked.parse(markdown);
+      const root = parseHtml(html);
       const text = root.text;
       
       return this.extractVariablesFromText(text, 'markdown', errors);

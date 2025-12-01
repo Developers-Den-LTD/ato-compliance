@@ -8,6 +8,14 @@ export class MockAdapter implements LLMProvider {
     return true; // Always available for testing
   }
 
+  getAvailableModels(): string[] {
+    return ['mock-model-v1', 'mock-model-v2', 'mock-model-large'];
+  }
+
+  getDefaultModel(): string {
+    return 'mock-model-v1';
+  }
+
   async generateText(messages: LLMMessage[], options: LLMGenerationOptions = {}): Promise<LLMResponse> {
     const userMessage = messages.find(m => m.role === 'user')?.content || '';
     const systemMessage = messages.find(m => m.role === 'system')?.content || '';

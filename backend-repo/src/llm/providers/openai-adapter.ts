@@ -69,10 +69,12 @@ export class OpenAIAdapter implements LLMProvider {
 
   async generateText(messages: LLMMessage[], options: LLMGenerationOptions = {}): Promise<LLMResponse> {
     try {
-      const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
+      const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = messages
+        .filter(msg => msg.role !== 'tool') // Filter out tool messages as they require tool_call_id
+        .map(msg => ({
+          role: msg.role as 'system' | 'user' | 'assistant',
+          content: msg.content
+        }));
 
       const modelToUse = options.model || DEFAULT_MODEL;
       const requestParams: any = {
@@ -112,10 +114,12 @@ export class OpenAIAdapter implements LLMProvider {
 
   async generateJSON<T = any>(messages: LLMMessage[], options: LLMGenerationOptions = {}): Promise<T> {
     try {
-      const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
+      const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = messages
+        .filter(msg => msg.role !== 'tool') // Filter out tool messages as they require tool_call_id
+        .map(msg => ({
+          role: msg.role as 'system' | 'user' | 'assistant',
+          content: msg.content
+        }));
 
       const modelToUse = options.model || DEFAULT_MODEL;
       const requestParams: any = {

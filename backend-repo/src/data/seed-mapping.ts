@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { controls, stigRules, stigRuleControls, stigRuleCcis, ccis } from '../schema';
-import mappingData from './nist-stig-mapping.json' assert { type: 'json' };
+import * as mappingData from './nist-stig-mapping.json';
 
 export interface SeedMappingData {
   version: string;
@@ -206,7 +206,7 @@ export async function clearMappingData(): Promise<void> {
 }
 
 // Allow running this file directly for seeding
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   seedMappingData()
     .then(() => {
       console.log('Seeding completed');

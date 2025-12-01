@@ -1,11 +1,11 @@
 import { db } from '../db';
 import { controls } from '../schema';
+import { eq, count } from 'drizzle-orm';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// In CommonJS, __dirname is available globally after compilation
+const currentDir = path.resolve();
 
 /**
  * Import FedRAMP security controls
@@ -18,7 +18,7 @@ export async function importFedRAMPControls(): Promise<void> {
     const existingFedRAMPControls = await db
       .select()
       .from(controls)
-      .where(controls.framework, 'FedRAMP')
+      .where(eq(controls.framework, 'FedRAMP'))
       .limit(1);
       
     if (existingFedRAMPControls.length > 0) {
@@ -29,7 +29,7 @@ export async function importFedRAMPControls(): Promise<void> {
     // Load FedRAMP catalog
     const catalogPath = process.env.NODE_ENV === 'production' 
       ? path.join(process.cwd(), 'server/data/fedramp-controls.json')
-      : path.join(__dirname, 'fedramp-controls.json');
+      : path.join(currentDir, 'fedramp-controls.json');
       
     const catalogData = await fs.readFile(catalogPath, 'utf-8');
     const catalog = JSON.parse(catalogData);
@@ -98,10 +98,10 @@ export async function importFedRAMPControls(): Promise<void> {
     const summary = await db
       .select({
         baseline: controls.baseline,
-        count: db.count()
+        count: count()
       })
       .from(controls)
-      .where(controls.framework, 'FedRAMP')
+      .where(eq(controls.framework, 'FedRAMP'))
       .groupBy(controls.baseline);
       
     console.log('\n📊 FedRAMP Controls Summary:');
@@ -126,13 +126,13 @@ export async function createFedRAMPMappings(): Promise<void> {
     const fedRampControls = await db
       .select()
       .from(controls)
-      .where(controls.framework, 'FedRAMP');
+      .where(eq(controls.framework, 'FedRAMP'));
       
     console.log(`📋 Found ${fedRampControls.length} FedRAMP controls to map`);
     
     // Import control relationships if the table exists
     try {
-      const { controlRelationships } = await import('../../shared/schema');
+      const { controlRelationships } = await import('../schema');
       
       const mappingsToInsert = [];
       

@@ -40,7 +40,7 @@ export interface ParsedVulnerability {
   evidence?: string;
   
   // Metadata
-  scanner: 'nessus' | 'scap' | 'manual';
+  scanner: 'nessus' | 'scap' | 'stig-viewer' | 'manual';
   scanDate: Date;
   lastSeen?: Date;
   firstSeen?: Date;
@@ -72,7 +72,7 @@ export interface ParsedScanResult {
   scanName: string;
   scanDate: Date;
   scanDuration?: number;
-  scanner: 'nessus' | 'scap';
+  scanner: 'nessus' | 'scap' | 'stig-viewer';
   scannerVersion?: string;
   
   // System information

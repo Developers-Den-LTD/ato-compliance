@@ -2,10 +2,9 @@ import { db } from '../db';
 import { controls } from '../schema';
 import fs from 'fs/promises';
 import path from 'path';
-// Use import.meta.url for ESM compatibility
-import { fileURLToPath } from 'url';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
+// In CommonJS, __dirname is available globally after compilation
+const currentDir = path.resolve();
 
 /**
  * Import the complete NIST 800-53 Rev 5 control catalog
@@ -23,7 +22,7 @@ export async function importFullNISTControls(): Promise<void> {
     // In production, the file is in /app/server/data/
     const catalogPath = process.env.NODE_ENV === 'production' 
       ? path.join(process.cwd(), 'server/data/nist-800-53-rev5-full.json')
-      : path.join(__dirname, 'nist-800-53-rev5-full.json');
+      : path.join(currentDir, 'nist-800-53-rev5-full.json');
     const catalogData = await fs.readFile(catalogPath, 'utf-8');
     const catalog = JSON.parse(catalogData);
     

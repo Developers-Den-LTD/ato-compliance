@@ -10,6 +10,15 @@ export class SystemController {
       const search = req.query.search as string;
       const offset = (page - 1) * limit;
 
+      // Validate sortBy to match expected union type
+      const sortByParam = req.query.sortBy as string;
+      const validSortBy = ['name', 'createdAt', 'updatedAt', 'complianceStatus'];
+      const sortBy = validSortBy.includes(sortByParam) ? sortByParam as 'name' | 'createdAt' | 'updatedAt' | 'complianceStatus' : 'name';
+
+      // Validate sortOrder to match expected union type
+      const sortOrderParam = req.query.sortOrder as string;
+      const sortOrder: 'asc' | 'desc' = (sortOrderParam === 'asc' || sortOrderParam === 'desc') ? sortOrderParam : 'asc';
+
       const query = {
         search,
         category: req.query.category as string,
@@ -18,8 +27,8 @@ export class SystemController {
         owner: req.query.owner as string,
         limit,
         offset,
-        sortBy: (req.query.sortBy as string) || 'name',
-        sortOrder: (req.query.sortOrder as string) || 'asc',
+        sortBy,
+        sortOrder,
       };
 
       const result = await systemService.getSystems(query);
