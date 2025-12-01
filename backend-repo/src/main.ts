@@ -15,7 +15,7 @@ import { testConnection } from './db';
 import routes from './routes';
 
 const APP_NAME = 'Ato Compliance';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 
 const PORT = process.env.PORT || 3000;
 
