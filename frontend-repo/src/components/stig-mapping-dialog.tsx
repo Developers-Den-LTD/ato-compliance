@@ -61,8 +61,18 @@ export function STIGMappingDialog({ open, onOpenChange, systemId }: STIGMappingD
 
   // Fetch STIG rules
   const { data: stigRules = [], isLoading: stigRulesLoading } = useQuery<STIGRule[]>({
-    queryKey: ['/api/assessment/stig-rules'],
+    queryKey: ['/api/assessment/stig-rules', systemId],
     enabled: open,
+    queryFn: async () => {
+      const url = systemId 
+        ? `/api/assessment/stig-rules?systemId=${systemId}`
+        : '/api/assessment/stig-rules';
+      const response = await apiRequest('GET', url);
+      if (response.ok) {
+        return response.json();
+      }
+      return [];
+    },
     staleTime: 5 * 60 * 1000,
   });
 

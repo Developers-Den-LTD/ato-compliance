@@ -71,14 +71,26 @@ export function DocumentGenerator({ systemId }: DocumentGeneratorProps) {
 
   // Fetch system information
   const { data: system } = useQuery({
-    queryKey: ['/api/systems', systemId],
-    enabled: !!systemId
+    queryKey: [`/api/systems/${systemId}`],
+    enabled: !!systemId,
+    select: (data: any) => {
+      // Handle both direct system object and wrapped response
+      if (data?.system) return data.system;
+      return data;
+    }
   });
 
   // Fetch system controls for stats
   const { data: systemControls = [] } = useQuery({
-    queryKey: ['/api/systems', systemId, 'controls'],
-    enabled: !!systemId
+    queryKey: [`/api/systems/${systemId}/controls`],
+    enabled: !!systemId,
+    select: (data: any) => {
+      // Ensure we always return an array
+      if (Array.isArray(data)) return data;
+      if (data?.controls && Array.isArray(data.controls)) return data.controls;
+      if (data?.systemControls && Array.isArray(data.systemControls)) return data.systemControls;
+      return [];
+    }
   });
 
   // Calculate readiness

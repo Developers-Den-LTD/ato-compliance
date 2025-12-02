@@ -1657,9 +1657,22 @@ router.get('/control-mappings', async (req, res) => {
   try {
     const { systemId, ruleType, severity } = req.query;
     
-    // Base query: Get all control mappings with joins
-    // Build where conditions
-    const whereConditions = [];
+    // Base query: Get all control mappings with joins (without CCI to avoid duplicates)
+    let query = db
+      .select({
+        controlId: controls.id,
+        controlTitle: controls.title,
+        controlFamily: controls.family,
+        stigRuleId: stigRules.id,
+        stigRuleTitle: stigRules.title,
+        severity: stigRules.severity,
+        ruleType: stigRules.ruleType,
+        rationale: stigRuleControls.rationale
+      })
+      .from(stigRuleControls)
+      .innerJoin(stigRules, eq(stigRuleControls.stigRuleId, stigRules.id))
+      .innerJoin(controls, eq(stigRuleControls.controlId, controls.id))
+      .$dynamic();
     
     // Filter by system if specified
     if (systemId && typeof systemId === 'string') {
@@ -1673,7 +1686,7 @@ router.get('/control-mappings', async (req, res) => {
       if (systemData.length > 0 && systemData[0].stigProfiles) {
         // Filter STIG rules based on system's STIG profiles
         const stigProfileIds = systemData[0].stigProfiles;
-        whereConditions.push(inArray(stigRules.stigId, stigProfileIds));
+        query = query.where(inArray(stigRules.stigId, stigProfileIds));
       } else {
         // System has no STIG profiles, return empty array
         res.json([]);
@@ -1682,30 +1695,17 @@ router.get('/control-mappings', async (req, res) => {
     }
 
     // Apply additional filters
+    const whereConditions = [];
     if (ruleType && typeof ruleType === 'string') {
       whereConditions.push(eq(stigRules.ruleType, ruleType));
     }
     if (severity && typeof severity === 'string') {
       whereConditions.push(eq(stigRules.severity, severity));
     }
-
-    const query = db
-      .select({
-        controlId: controls.id,
-        controlTitle: controls.title,
-        controlFamily: controls.family,
-        stigRuleId: stigRules.id,
-        stigRuleTitle: stigRules.title,
-        severity: stigRules.severity,
-        ruleType: stigRules.ruleType,
-        rationale: stigRuleControls.rationale,
-        cci: ccis.cci
-      })
-      .from(stigRuleControls)
-      .innerJoin(stigRules, eq(stigRuleControls.stigRuleId, stigRules.id))
-      .innerJoin(controls, eq(stigRuleControls.controlId, controls.id))
-      .leftJoin(ccis, eq(ccis.controlId, controls.id))
-      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
+    
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
 
     const mappings = await query;
     
@@ -1714,7 +1714,7 @@ router.get('/control-mappings', async (req, res) => {
       controlId: mapping.controlId,
       controlTitle: mapping.controlTitle || 'Unknown Control',
       controlFamily: mapping.controlFamily || 'Unknown',
-      cci: mapping.cci || 'N/A',
+      cci: 'N/A',
       stigRuleId: mapping.stigRuleId,
       stigRuleTitle: mapping.stigRuleTitle || 'Unknown Rule',
       severity: mapping.severity || 'Unknown',
@@ -1735,9 +1735,30 @@ router.get('/control-mappings', async (req, res) => {
  */
 router.get('/stig-rules', async (req, res) => {
   try {
-    const { ruleType, severity } = req.query;
+    const { systemId, ruleType, severity } = req.query;
     
-    // Build where conditions
+    // Build base query
+    let query = db.select().from(stigRules).$dynamic();
+    
+    // Filter by system's STIG profiles if systemId provided
+    if (systemId && typeof systemId === 'string') {
+      const systemData = await db
+        .select({ stigProfiles: systems.stigProfiles })
+        .from(systems)
+        .where(eq(systems.id, systemId))
+        .limit(1);
+      
+      if (systemData.length > 0 && systemData[0].stigProfiles) {
+        const stigProfileIds = systemData[0].stigProfiles;
+        query = query.where(inArray(stigRules.stigId, stigProfileIds));
+      } else {
+        // System has no STIG profiles, return empty array
+        res.json([]);
+        return;
+      }
+    }
+    
+    // Apply additional filters
     const whereConditions = [];
     if (ruleType && typeof ruleType === 'string') {
       whereConditions.push(eq(stigRules.ruleType, ruleType));
@@ -1746,9 +1767,9 @@ router.get('/stig-rules', async (req, res) => {
       whereConditions.push(eq(stigRules.severity, severity));
     }
     
-    // Build query with conditions
-    const query = db.select().from(stigRules)
-      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
     
     const rules = await query;
     

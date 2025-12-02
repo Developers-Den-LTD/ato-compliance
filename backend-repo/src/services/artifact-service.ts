@@ -552,7 +552,10 @@ export class ArtifactService {
 
   private generateArtifactUrl(artifactId: string, fileName: string, isPublic: boolean): string {
     // In development, serve files directly from the API
-    const baseUrl = process.env.REPLIT_DOMAIN ? `https://${process.env.REPLIT_DOMAIN}` : 'http://localhost:5000';
+    const port = process.env.PORT || '3000';
+    const baseUrl = process.env.REPLIT_DOMAIN 
+      ? `https://${process.env.REPLIT_DOMAIN}` 
+      : `http://localhost:${port}`;
     const prefix = isPublic ? 'public' : 'private';
     return `${baseUrl}/api/artifacts/${prefix}/${artifactId}/${fileName}`;
   }

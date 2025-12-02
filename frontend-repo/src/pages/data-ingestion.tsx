@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Upload, 
   FileText, 
@@ -28,7 +28,8 @@ import {
   FileCheck,
   Code,
   Server,
-  Scan
+  Scan,
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -225,6 +226,11 @@ export default function DataIngestion() {
     tags: '',
     isPublic: false
   });
+  
+  // Preview modal state
+  const [previewArtifact, setPreviewArtifact] = useState<ArtifactInfo | null>(null);
+  const [previewContent, setPreviewContent] = useState<string>('');
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   // Fetch systems for selection
   const { data: systemsResponse, isLoading: systemsLoading } = useQuery<{ systems: System[]; totalCount: number }>({
@@ -236,7 +242,7 @@ export default function DataIngestion() {
 
   // Fetch artifacts for selected system
   const { data: artifactsData, isLoading: artifactsLoading, refetch: refetchArtifacts } = useQuery({
-    queryKey: ['/api/artifacts/systems', selectedSystem],
+    queryKey: [`/api/artifacts/systems/${selectedSystem}`],
     enabled: !!selectedSystem,
     select: (data: any) => data.artifacts || []
   });
@@ -269,7 +275,7 @@ export default function DataIngestion() {
           ? { ...f, status: 'completed', progress: 100, artifactId: data.artifact?.id }
           : f
       ));
-      queryClient.invalidateQueries({ queryKey: ['/api/artifacts/systems', selectedSystem] });
+      queryClient.invalidateQueries({ queryKey: [`/api/artifacts/systems/${selectedSystem}`] });
       toast({
         title: "Upload successful",
         description: `${file.name} has been uploaded successfully.`
@@ -296,7 +302,7 @@ export default function DataIngestion() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/artifacts/systems', selectedSystem] });
+      queryClient.invalidateQueries({ queryKey: [`/api/artifacts/systems/${selectedSystem}`] });
       toast({
         title: "Deleted successfully",
         description: "The artifact has been removed."
@@ -392,6 +398,57 @@ export default function DataIngestion() {
 
   const getArtifactTypeInfo = (type: string) => {
     return ARTIFACT_TYPES.find(t => t.value === type) || ARTIFACT_TYPES[ARTIFACT_TYPES.length - 1];
+  };
+
+  const handleViewArtifact = async (artifact: ArtifactInfo) => {
+    setPreviewArtifact(artifact);
+    setIsLoadingPreview(true);
+    setPreviewContent('');
+
+    try {
+      // Check if it's a viewable type (text, xml, json, etc.)
+      const viewableTypes = [
+        'text/plain', 'text/xml', 'application/xml', 'application/json',
+        'text/markdown', 'text/x-markdown', 'text/html', 'text/csv',
+        'text/yaml', 'text/x-yaml', 'application/x-yaml'
+      ];
+
+      const isViewable = viewableTypes.includes(artifact.mimeType) || 
+                        artifact.fileName.match(/\.(txt|xml|json|md|html|csv|yaml|yml)$/i);
+
+      if (isViewable) {
+        // Fetch the content
+        const response = await fetch(artifact.url, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch artifact content');
+        }
+
+        const text = await response.text();
+        setPreviewContent(text);
+      } else if (artifact.mimeType.startsWith('image/')) {
+        // For images, just show the URL
+        setPreviewContent(`IMAGE:${artifact.url}`);
+      } else {
+        // For other types, open in new tab
+        window.open(artifact.url, '_blank');
+        setPreviewArtifact(null);
+        return;
+      }
+    } catch (error) {
+      toast({
+        title: 'Preview Failed',
+        description: error instanceof Error ? error.message : 'Failed to load artifact preview',
+        variant: 'destructive'
+      });
+      setPreviewArtifact(null);
+    } finally {
+      setIsLoadingPreview(false);
+    }
   };
 
   if (systemsLoading) {
@@ -687,7 +744,7 @@ export default function DataIngestion() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(artifact.url, '_blank')}
+                            onClick={() => handleViewArtifact(artifact)}
                             data-testid={`button-view-${artifact.id}`}
                           >
                             <Eye className="h-4 w-4" />
@@ -730,6 +787,61 @@ export default function DataIngestion() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Artifact Preview Dialog */}
+      <Dialog open={!!previewArtifact} onOpenChange={(open) => !open && setPreviewArtifact(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              {previewArtifact?.title}
+            </DialogTitle>
+            <DialogDescription>
+              {previewArtifact?.fileName} • {previewArtifact && formatBytes(previewArtifact.fileSize)} • {previewArtifact?.mimeType}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto">
+            {isLoadingPreview ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : previewContent.startsWith('IMAGE:') ? (
+              <div className="flex items-center justify-center p-4">
+                <img 
+                  src={previewContent.substring(6)} 
+                  alt={previewArtifact?.title}
+                  className="max-w-full max-h-[60vh] object-contain"
+                />
+              </div>
+            ) : (
+              <pre className="p-4 bg-muted rounded-lg text-sm overflow-auto font-mono whitespace-pre-wrap break-words">
+                {previewContent}
+              </pre>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (previewArtifact) {
+                  const a = document.createElement('a');
+                  a.href = previewArtifact.url;
+                  a.download = previewArtifact.fileName;
+                  a.click();
+                }
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+            <Button onClick={() => setPreviewArtifact(null)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
