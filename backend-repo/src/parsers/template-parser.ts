@@ -8,7 +8,7 @@ import type { TemplateVersion } from '../schema';
 // Document parsing libraries
 import * as mammoth from 'mammoth';
 import { parse as parseHtml } from 'node-html-parser';
-import { marked } from 'marked';
+// Note: marked is imported dynamically due to ESM compatibility
 import PizZip from 'pizzip';
 
 export interface TemplateParseResult {
@@ -378,6 +378,8 @@ export class TemplateParser {
   ): Promise<{ variables: TemplateVariable[]; structure: TemplateStructure }> {
     try {
       const markdown = content.toString('utf8');
+      // Dynamic import for ESM compatibility
+      const { marked } = await import('marked');
       const html = await marked.parse(markdown);
       const root = parseHtml(html);
       const text = root.text;
