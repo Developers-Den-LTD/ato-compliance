@@ -553,7 +553,9 @@ export class ArtifactService {
   private generateArtifactUrl(artifactId: string, fileName: string, isPublic: boolean): string {
     // Use BACKEND_URL from environment, fallback to localhost
     const port = process.env.PORT || '3000';
-    const baseUrl = process.env.BACKEND_URL || `http://localhost:${port}`;
+    const baseUrl = process.env.REPLIT_DOMAIN 
+      ? `https://${process.env.REPLIT_DOMAIN}` 
+      : `http://localhost:${port}`;
     const prefix = isPublic ? 'public' : 'private';
     return `${baseUrl}/api/artifacts/${prefix}/${artifactId}/${fileName}`;
   }
