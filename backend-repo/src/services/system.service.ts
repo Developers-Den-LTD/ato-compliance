@@ -74,8 +74,8 @@ export class SystemService {
     // Validate input
     const validatedData = CreateSystemSchema.parse(systemData);
 
-    // Verify owner exists (skip if auth disabled)
-    if (process.env.DISABLE_AUTH !== 'true') {
+    // Verify owner exists (skip if auth disabled or in development)
+    if (process.env.NODE_ENV === 'production' && process.env.DISABLE_AUTH !== 'true') {
       const owner = await db
         .select({ id: users.id })
         .from(users)

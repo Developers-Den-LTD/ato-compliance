@@ -4,6 +4,19 @@ import { verifyAccessToken } from '../utils/jwt.utils';
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    // Bypass authentication in development mode or when auth is disabled
+    if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_AUTH === 'true') {
+      req.user = {
+        userId: '00000000-0000-0000-0000-000000000000', // Valid UUID for dev mode
+        username: 'admin',
+        email: 'admin@dev.local',
+        role: 'admin',
+        permissions: ['*'],
+        systems: ['*']
+      };
+      return next();
+    }
+
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
     

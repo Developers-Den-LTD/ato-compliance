@@ -14,34 +14,40 @@ import type { Control } from "@/types/schema";
 
 interface ControlsResponse {
   controls: Control[];
-  total: number;
-  filters: {
-    family?: string;
-    baseline?: string;
-    status?: string;
+  pagination: {
+    page: number;
     limit: number;
+    total: number;
+    totalPages: number;
   };
+  families: Array<{
+    name: string;
+    total: number;
+  }>;
+  baselines: string[];
 }
 
 export default function Controls() {
   const [selectedFamily, setSelectedFamily] = useState<string>("");
   const [selectedBaseline, setSelectedBaseline] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [stigUploadDialogOpen, setStigUploadDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch controls from API
   const { data: controlsResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/controls', 'v2', { family: selectedFamily, baseline: selectedBaseline }],
+    queryKey: ['/api/controls', 'v2', { family: selectedFamily, baseline: selectedBaseline, page: currentPage, limit: pageSize }],
     queryFn: async ({ queryKey }) => {
-      const [endpoint, params] = queryKey as [string, Record<string, string>];
+      const [endpoint, , params] = queryKey as [string, string, Record<string, any>];
       const searchParams = new URLSearchParams();
       if (params.family) searchParams.append('family', params.family);
       if (params.baseline) searchParams.append('baseline', params.baseline);
-      searchParams.append('limit', '2000');
+      searchParams.append('page', params.page.toString());
+      searchParams.append('limit', params.limit.toString());
       
-      const url = params.family || params.baseline ? 
-        `${endpoint}?${searchParams.toString()}` : endpoint;
+      const url = `${endpoint}?${searchParams.toString()}`;
       
       const response = await apiRequest('GET', url);
       return response.json();
@@ -51,6 +57,8 @@ export default function Controls() {
 
   // Extract controls from response
   const controls = controlsResponse?.controls || [];
+  const families = controlsResponse?.families || [];
+  const baselines = controlsResponse?.baselines || [];
 
   // Update control status mutation
   const updateControlMutation = useMutation({
@@ -74,33 +82,24 @@ export default function Controls() {
     },
   });
 
-  // Calculate family statistics from real data
+  // Family statistics from API (always shows all families)
   const familyStats = useMemo(() => {
     const stats: Record<string, { total: number; implemented: number }> = {};
     
+    // Initialize with API data
+    families.forEach(family => {
+      stats[family.name] = { total: family.total, implemented: 0 };
+    });
+    
+    // Count implemented from current page (for display purposes)
     controls.forEach(control => {
-      if (!stats[control.family]) {
-        stats[control.family] = { total: 0, implemented: 0 };
-      }
-      stats[control.family].total += 1;
-      if (control.status === 'implemented') {
+      if (stats[control.family] && control.status === 'implemented') {
         stats[control.family].implemented += 1;
       }
     });
     
     return stats;
-  }, [controls]);
-
-  // Get unique families and baselines for filtering
-  const uniqueFamilies = useMemo(() => {
-    const families = [...new Set(controls.map(c => c.family))];
-    return families.sort();
-  }, [controls]);
-
-  const uniqueBaselines = useMemo(() => {
-    const baselines = [...new Set(controls.flatMap(c => c.baseline || []))];
-    return baselines.sort();
-  }, [controls]);
+  }, [families, controls]);
 
   // Transform controls data for ControlTable component
   const transformedControls = controls.map(control => ({
@@ -189,26 +188,34 @@ export default function Controls() {
       <div className="flex gap-4">
         <select
           value={selectedFamily}
-          onChange={(e) => setSelectedFamily(e.target.value)}
+          onChange={(e) => {
+            setSelectedFamily(e.target.value);
+            setCurrentPage(1); // Reset to first page when filter changes
+          }}
           className="px-3 py-2 border border-input bg-background rounded-md text-sm"
           data-testid="select-family-filter"
           disabled={isLoading}
         >
           <option value="">All Families</option>
-          {uniqueFamilies.map(family => (
-            <option key={family} value={family}>{family}</option>
+          {families.map(family => (
+            <option key={family.name} value={family.name}>
+              {family.name} ({family.total})
+            </option>
           ))}
         </select>
         
         <select
           value={selectedBaseline}
-          onChange={(e) => setSelectedBaseline(e.target.value)}
+          onChange={(e) => {
+            setSelectedBaseline(e.target.value);
+            setCurrentPage(1); // Reset to first page when filter changes
+          }}
           className="px-3 py-2 border border-input bg-background rounded-md text-sm"
           data-testid="select-baseline-filter"
           disabled={isLoading}
         >
           <option value="">All Baselines</option>
-          {uniqueBaselines.map(baseline => (
+          {baselines.map(baseline => (
             <option key={baseline} value={baseline}>{baseline}</option>
           ))}
         </select>
@@ -220,6 +227,7 @@ export default function Controls() {
             onClick={() => {
               setSelectedFamily("");
               setSelectedBaseline("");
+              setCurrentPage(1);
             }}
             data-testid="button-clear-filters"
           >
@@ -298,11 +306,27 @@ export default function Controls() {
             <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
               {Object.entries(familyStats).map(([family, stats]) => {
                 const percentage = stats.total > 0 ? Math.round((stats.implemented / stats.total) * 100) : 0;
+                const isSelected = selectedFamily === family;
                 return (
-                  <Card key={family} className="hover-elevate">
+                  <Card 
+                    key={family} 
+                    className={`hover-elevate cursor-pointer transition-all ${
+                      isSelected 
+                        ? 'ring-2 ring-primary bg-primary/5 dark:bg-primary/10 border-primary' 
+                        : 'hover:border-primary/50'
+                    }`}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedFamily("");
+                      } else {
+                        setSelectedFamily(family);
+                      }
+                      setCurrentPage(1);
+                    }}
+                  >
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <Shield className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
                         <span className="truncate" title={family}>{family}</span>
                       </CardTitle>
                     </CardHeader>
@@ -355,6 +379,14 @@ export default function Controls() {
                 <ControlTable 
                   controls={transformedControls}
                   onViewControl={handleViewControl}
+                  pagination={controlsResponse?.pagination}
+                  currentPage={currentPage}
+                  onPageChange={setCurrentPage}
+                  pageSize={pageSize}
+                  onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                  }}
                 />
               )}
             </CardContent>

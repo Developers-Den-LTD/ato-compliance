@@ -45,6 +45,27 @@ export class AuthController {
 
   async login(req: Request, res: Response) {
     try {
+      // Bypass authentication in development mode or when auth is disabled
+      if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_AUTH === 'true') {
+        const mockResult = {
+          success: true,
+          user: {
+            id: '00000000-0000-0000-0000-000000000000',
+            username: req.body.username || 'admin',
+            email: 'admin@dev.local',
+            role: 'admin'
+          },
+          accessToken: 'dev-session-token-123',
+          refreshToken: 'dev-refresh-token',
+          session: {
+            sessionToken: 'dev-session-token-123',
+            refreshToken: 'dev-refresh-token',
+            expiresIn: 86400
+          }
+        };
+        return res.status(200).json(mockResult);
+      }
+
       const { username, password } = req.body;
 
       // Validation
@@ -76,6 +97,23 @@ export class AuthController {
 
   async refreshToken(req: Request, res: Response) {
     try {
+      // Bypass authentication in development mode or when auth is disabled
+      if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_AUTH === 'true') {
+        const mockResult = {
+          success: true,
+          user: {
+            id: '00000000-0000-0000-0000-000000000000',
+            username: 'admin',
+            email: 'admin@dev.local',
+            role: 'admin'
+          },
+          accessToken: 'dev-session-token-123',
+          refreshToken: 'dev-refresh-token',
+          expiresIn: 86400
+        };
+        return res.status(200).json(mockResult);
+      }
+
       // Get refresh token from cookie or body
       const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
@@ -118,6 +156,21 @@ export class AuthController {
 
   async getCurrentUser(req: AuthRequest, res: Response) {
     try {
+      // Bypass in development mode or when auth is disabled
+      if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_AUTH === 'true') {
+        return res.status(200).json({
+          id: '00000000-0000-0000-0000-000000000000',
+          username: 'admin',
+          displayName: 'Administrator',
+          email: 'admin@dev.local',
+          firstName: 'Admin',
+          lastName: 'User',
+          role: 'admin',
+          permissions: ['*'],
+          systems: ['*']
+        });
+      }
+
       if (!req.user) {
         return res.status(401).json({ error: 'Not authenticated' });
       }

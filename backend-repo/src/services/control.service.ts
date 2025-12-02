@@ -67,6 +67,24 @@ export class ControlService {
       .offset(offset)
       .orderBy(controls.id);
 
+    // Get family statistics (always from all controls, not filtered)
+    const familyStats = await db
+      .select({
+        family: controls.family,
+        total: sql<number>`count(*)::int`,
+      })
+      .from(controls)
+      .groupBy(controls.family)
+      .orderBy(controls.family);
+
+    // Get unique baselines
+    const baselineList = await db
+      .selectDistinct({
+        baseline: sql<string>`unnest(${controls.baseline})`,
+      })
+      .from(controls)
+      .orderBy(sql`unnest(${controls.baseline})`);
+
     return {
       controls: controlList,
       pagination: {
@@ -75,6 +93,11 @@ export class ControlService {
         total: count,
         totalPages: Math.ceil(count / limit),
       },
+      families: familyStats.map(f => ({
+        name: f.family,
+        total: f.total,
+      })),
+      baselines: baselineList.map(b => b.baseline),
     };
   }
 

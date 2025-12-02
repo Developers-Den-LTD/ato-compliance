@@ -31,6 +31,16 @@ interface ControlTableProps {
   controls: Control[];
   onViewControl?: (controlId: string) => void;
   className?: string;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  currentPage?: number;
+  onPageChange?: (page: number) => void;
+  pageSize?: number;
+  onPageSizeChange?: (size: number) => void;
 }
 
 const baselineColors = {
@@ -39,7 +49,16 @@ const baselineColors = {
   High: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
 };
 
-export function ControlTable({ controls, onViewControl, className }: ControlTableProps) {
+export function ControlTable({ 
+  controls, 
+  onViewControl, 
+  className,
+  pagination,
+  currentPage = 1,
+  onPageChange,
+  pageSize = 50,
+  onPageSizeChange
+}: ControlTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBaseline, setFilterBaseline] = useState<string>("");
   const [filterRuleType, setFilterRuleType] = useState<string>("");
@@ -157,14 +176,41 @@ export function ControlTable({ controls, onViewControl, className }: ControlTabl
       </div>
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <div>
-          Showing {filteredControls.length} of {controls.length} controls
+        <div className="flex items-center gap-4">
+          <div>
+            Showing {filteredControls.length} of {pagination?.total || controls.length} controls
+          </div>
+          {pagination && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs">Page {pagination.page} of {pagination.totalPages}</span>
+              <select
+                value={pageSize}
+                onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+                className="px-2 py-1 border border-input bg-background rounded text-xs"
+              >
+                <option value="25">25 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+                <option value="200">200 per page</option>
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={!pagination || currentPage <= 1}
+            onClick={() => onPageChange?.(currentPage - 1)}
+          >
             Previous
           </Button>
-          <Button variant="outline" size="sm" disabled>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={!pagination || currentPage >= (pagination?.totalPages || 1)}
+            onClick={() => onPageChange?.(currentPage + 1)}
+          >
             Next
           </Button>
         </div>
